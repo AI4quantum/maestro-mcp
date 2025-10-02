@@ -1,10 +1,11 @@
+---
 name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
 
 env:
   GO_VERSION: '1.21'
@@ -151,7 +152,7 @@ jobs:
         run: |
           # Install gosec
           go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
-          
+
           # Run gosec
           gosec ./src/...
 
@@ -159,7 +160,7 @@ jobs:
         run: |
           # Install govulncheck
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          
+
           # Run vulnerability check
           govulncheck ./src/...
 

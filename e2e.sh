@@ -89,6 +89,7 @@ check_server_health() {
 }
 
 # Function to make HTTP request
+# shellcheck disable=SC2317
 make_request() {
     local method="$1"
     local endpoint="$2"
