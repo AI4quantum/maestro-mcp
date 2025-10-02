@@ -1,6 +1,9 @@
 # Maestro MCP Server
 
-A native Golang implementation of the Model Context Protocol (MCP) server for Maestro and Maestro Knowledge. This server provides vector database operations through a standardized MCP interface, supporting both Milvus and Weaviate vector databases.
+A native Golang implementation of the Model Context Protocol (MCP) server for
+Maestro and Maestro Knowledge. This server provides vector database operations
+through a standardized MCP interface, supporting both Milvus and Weaviate vector
+databases.
 
 ## Features
 
@@ -54,7 +57,8 @@ The server will start on `http://localhost:8030` by default.
 
 ### Environment Variables
 
-The server uses environment variables with the `MAESTRO_MCP_` prefix. Key configuration options:
+The server uses environment variables with the `MAESTRO_MCP_` prefix. Key
+configuration options:
 
 ```bash
 # Server Configuration
@@ -339,7 +343,8 @@ The release workflow automatically:
 
 ### Milvus
 
-Milvus is a vector database designed for scalable similarity search and AI applications.
+Milvus is a vector database designed for scalable similarity search and AI
+applications.
 
 **Configuration**:
 ```bash
@@ -352,7 +357,8 @@ MAESTRO_MCP_VECTOR_DB_MILVUS_PASSWORD=password
 
 ### Weaviate
 
-Weaviate is an open-source vector database that allows you to store data objects and vector embeddings.
+Weaviate is an open-source vector database that allows you to store data objects
+and vector embeddings.
 
 **Configuration**:
 ```bash
@@ -363,7 +369,8 @@ MAESTRO_MCP_VECTOR_DB_WEAVIATE_API_KEY=your_api_key
 
 ### Mock Database
 
-For testing and development, the server includes a mock vector database that simulates all operations without requiring external dependencies.
+For testing and development, the server includes a mock vector database that
+simulates all operations without requiring external dependencies.
 
 ## Embedding Support
 
@@ -449,7 +456,8 @@ Log output can be configured to stdout, stderr, or files.
 
 The server is designed for high performance:
 
-- **Concurrent Operations**: Multiple vector databases can be managed simultaneously
+- **Concurrent Operations**: Multiple vector databases can be managed
+  simultaneously
 - **Connection Pooling**: Efficient database connection management
 - **Timeout Protection**: All operations have configurable timeouts
 - **Memory Efficient**: Minimal memory footprint with proper cleanup
@@ -467,7 +475,8 @@ Security features include:
 
 ### Download
 
-Download the latest release from the [Releases page](https://github.com/maximilien/maestro-mcp/releases).
+Download the latest release from the
+[Releases page](https://github.com/maximilien/maestro-mcp/releases).
 
 ### Supported Platforms
 
@@ -483,7 +492,8 @@ Download the latest release from the [Releases page](https://github.com/maximili
 
 ### Verification
 
-Verify the integrity of your download using the checksums provided in each release:
+Verify the integrity of your download using the checksums provided in each
+release:
 
 ```bash
 sha256sum -c checksums.txt
@@ -502,7 +512,8 @@ sha256sum -c checksums.txt
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the
+[LICENSE](LICENSE) file for details.
 
 ## Support
 

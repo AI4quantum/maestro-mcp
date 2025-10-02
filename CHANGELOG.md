@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Initial release of Maestro MCP Server
 - Support for Milvus and Weaviate vector databases
 - Mock database for testing and development
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI/CD workflows
 
 ### Features
+
 - **Vector Database Support**: Milvus and Weaviate integration
 - **MCP Protocol**: Full Model Context Protocol implementation
 - **Embedding Support**: OpenAI and custom local embedding services
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration**: YAML and environment variable support
 
 ### Tools Available
+
 - `create_vector_database`: Create a new vector database instance
 - `list_databases`: List all available vector database instances
 - `setup_database`: Set up a vector database and create collections
@@ -48,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-01-02
 
 ### Added
+
 - Initial release of Maestro MCP Server
 - Support for Milvus and Weaviate vector databases
 - Mock database for testing and development

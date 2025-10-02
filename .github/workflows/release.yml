@@ -62,19 +62,24 @@ jobs:
 
           # Build for different platforms
           GOOS=linux GOARCH=amd64 go build \
-            -ldflags "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
+            -ldflags \
+            "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
             -o release/maestro-mcp-linux-amd64 ./src/main.go
           GOOS=linux GOARCH=arm64 go build \
-            -ldflags "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
+            -ldflags \
+            "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
             -o release/maestro-mcp-linux-arm64 ./src/main.go
           GOOS=darwin GOARCH=amd64 go build \
-            -ldflags "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
+            -ldflags \
+            "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
             -o release/maestro-mcp-darwin-amd64 ./src/main.go
           GOOS=darwin GOARCH=arm64 go build \
-            -ldflags "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
+            -ldflags \
+            "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
             -o release/maestro-mcp-darwin-arm64 ./src/main.go
           GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
+            -ldflags \
+            "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
             -o release/maestro-mcp-windows-amd64.exe ./src/main.go
 
           # Make binaries executable
@@ -95,7 +100,8 @@ jobs:
           if [ -f CHANGELOG.md ]; then
             # Extract changelog for this version
             VERSION_NO_V=${VERSION#v}
-            CHANGELOG=$(awk "/^## \[$VERSION_NO_V\]/{flag=1;next}/^## \[/{flag=0}flag" \
+            CHANGELOG=$(awk \
+              "/^## \[$VERSION_NO_V\]/{flag=1;next}/^## \[/{flag=0}flag" \
               CHANGELOG.md || echo "No changelog found for version $VERSION")
           else
             CHANGELOG="Release $VERSION"
@@ -157,3 +163,4 @@ jobs:
         with:
           name: release-binaries-${{ steps.version.outputs.version }}
           path: release/
+
