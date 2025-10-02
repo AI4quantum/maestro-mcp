@@ -288,7 +288,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error("Failed to encode health response", zap.Error(err))
+	}
 }
 
 // handleToolsList handles tool listing requests
@@ -312,7 +314,9 @@ func (s *Server) handleToolsList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.logger.Error("Failed to encode tools list response", zap.Error(err))
+	}
 }
 
 // handleToolCall handles tool execution requests
@@ -353,7 +357,9 @@ func (s *Server) handleToolCall(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(response)
+		if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+			s.logger.Error("Failed to encode error response", zap.Error(encodeErr))
+		}
 		return
 	}
 

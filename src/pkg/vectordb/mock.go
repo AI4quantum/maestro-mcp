@@ -223,7 +223,7 @@ func (m *MockMilvusClient) GetCollectionInfo(ctx context.Context, collectionName
 		return nil, fmt.Errorf("collection '%s' does not exist", collectionName)
 	}
 
-	docs, _ := m.documents[collectionName]
+	docs := m.documents[collectionName]
 
 	info := map[string]interface{}{
 		"name":           collectionName,
@@ -470,7 +470,7 @@ func (m *MockWeaviateClient) GetCollectionInfo(ctx context.Context, collectionNa
 		return nil, fmt.Errorf("collection '%s' does not exist", collectionName)
 	}
 
-	docs, _ := m.documents[collectionName]
+	docs := m.documents[collectionName]
 
 	info := map[string]interface{}{
 		"name":           collectionName,
