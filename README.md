@@ -543,6 +543,10 @@ For support and questions:
 
 ## Changelog
 
+### v0.0.2
+
+- Removed main executable since we have bin directory
+
 ### v0.0.1
 
 - Initial release
