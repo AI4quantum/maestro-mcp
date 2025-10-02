@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.21'
+  MAESTRO_MCP_SERVER_HOST: localhost
+  MAESTRO_MCP_SERVER_PORT: 8030
+  MAESTRO_MCP_VECTOR_DB_TYPE: milvus
+  MAESTRO_MCP_EMBEDDING_PROVIDER: openai
+  MAESTRO_MCP_EMBEDDING_MODEL: text-embedding-ada-002
+  MAESTRO_MCP_EMBEDDING_API_KEY: test-key
+  MAESTRO_MCP_EMBEDDING_VECTOR_SIZE: 1536
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Run linter
+        run: ./lint.sh --skip-security
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: maestro-mcp-binary
+          path: bin/maestro-mcp
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Run unit tests
+        run: ./test.sh unit
+
+      - name: Run tests with coverage
+        run: ./test.sh coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [lint, build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: maestro-mcp-binary
+          path: bin/
+
+      - name: Make binary executable
+        run: chmod +x bin/maestro-mcp
+
+      - name: Run integration tests
+        run: ./test.sh integration
+
+      - name: Run end-to-end tests
+        run: ./e2e.sh
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Run security scan
+        run: |
+          # Install gosec
+          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          
+          # Run gosec
+          gosec ./src/...
+
+      - name: Run vulnerability check
+        run: |
+          # Install govulncheck
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          
+          # Run vulnerability check
+          govulncheck ./src/...
+
+  matrix-test:
+    name: Matrix Test
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.21', '1.22']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod verify
+
+      - name: Run tests
+        run: ./test.sh unit
+
+      - name: Build
+        run: ./build.sh
