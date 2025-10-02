@@ -221,8 +221,13 @@ maestro-mcp/
 │       ├── server/         # HTTP server
 │       └── vectordb/       # Vector database implementations
 ├── tests/                 # Test files
+├── .github/               # GitHub Actions workflows
+│   └── workflows/
+│       ├── ci.yml         # Continuous Integration
+│       └── release.yml    # Release automation
 ├── config.yaml           # Configuration file
 ├── .env.example          # Environment variables example
+├── CHANGELOG.md          # Changelog
 ├── build.sh              # Build script
 ├── test.sh               # Test script
 ├── start.sh              # Start script
@@ -273,6 +278,40 @@ maestro-mcp/
 # Run full E2E test suite
 ./e2e.sh
 ```
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration and deployment.
+
+### Continuous Integration
+
+The CI pipeline runs on every push and pull request and includes:
+
+- **Linting**: Code quality checks with golangci-lint, gofmt, and shellcheck
+- **Building**: Compilation for multiple platforms (Linux, macOS, Windows)
+- **Testing**: Unit tests, integration tests, and end-to-end tests
+- **Security**: Vulnerability scanning with gosec and govulncheck
+- **Matrix Testing**: Cross-platform testing with multiple Go versions
+
+### Release Automation
+
+The release workflow automatically:
+
+- **Triggers**: On git tags (e.g., `v1.0.0`) or manual dispatch
+- **Tests**: Runs full test suite before release
+- **Builds**: Creates binaries for multiple platforms
+- **Packages**: Generates checksums and release notes
+- **Publishes**: Creates GitHub release with downloadable assets
+
+### Workflow Files
+
+- `.github/workflows/ci.yml`: Main CI pipeline
+- `.github/workflows/release.yml`: Release automation
+
+### Status Badges
+
+[![CI](https://github.com/maximilien/maestro-mcp/workflows/CI/badge.svg)](https://github.com/maximilien/maestro-mcp/actions)
+[![Release](https://github.com/maximilien/maestro-mcp/workflows/Release/badge.svg)](https://github.com/maximilien/maestro-mcp/actions)
 
 ### Server Management
 
@@ -424,6 +463,32 @@ Security features include:
 - **Rate Limiting**: Configurable rate limits for API endpoints
 - **Authentication**: Support for API keys and custom authentication
 
+## Releases
+
+### Download
+
+Download the latest release from the [Releases page](https://github.com/maximilien/maestro-mcp/releases).
+
+### Supported Platforms
+
+- **Linux**: amd64, arm64
+- **macOS**: amd64, arm64 (Apple Silicon)
+- **Windows**: amd64
+
+### Installation
+
+1. Download the appropriate binary for your platform
+2. Make it executable: `chmod +x maestro-mcp-*`
+3. Run: `./maestro-mcp-*`
+
+### Verification
+
+Verify the integrity of your download using the checksums provided in each release:
+
+```bash
+sha256sum -c checksums.txt
+```
+
 ## Contributing
 
 1. Fork the repository
@@ -432,7 +497,8 @@ Security features include:
 4. Add tests for new functionality
 5. Run the test suite: `./test.sh all`
 6. Run the linter: `./lint.sh`
-7. Submit a pull request
+7. Ensure CI passes
+8. Submit a pull request
 
 ## License
 
