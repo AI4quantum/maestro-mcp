@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximilien/maestro-mcp/src/pkg/config"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -1,4 +1,4 @@
-module github.com/maximilien/maestro-mcp
+module github.com/AI4quantum/maestro-mcp
 
 go 1.21
 

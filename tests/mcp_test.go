@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/maximilien/maestro-mcp/src/pkg/config"
-	"github.com/maximilien/maestro-mcp/src/pkg/mcp"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

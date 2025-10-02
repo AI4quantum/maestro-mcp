@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/maximilien/maestro-mcp/src/pkg/config"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
 )
 
 // VectorDatabase defines the interface for vector database operations

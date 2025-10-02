@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/maximilien/maestro-mcp/src/pkg/config"
-	"github.com/maximilien/maestro-mcp/src/pkg/server"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
+	"github.com/AI4quantum/maestro-mcp/src/pkg/server"
 	"go.uber.org/zap"
 )
 
