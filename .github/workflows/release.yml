@@ -64,23 +64,28 @@ jobs:
           GOOS=linux GOARCH=amd64 go build \
             -ldflags \
             "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
-            -o release/maestro-mcp-linux-amd64 ./src/main.go
+            -o release/maestro-mcp-linux-amd64 \
+            ./src/main.go
           GOOS=linux GOARCH=arm64 go build \
             -ldflags \
             "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
-            -o release/maestro-mcp-linux-arm64 ./src/main.go
+            -o release/maestro-mcp-linux-arm64 \
+            ./src/main.go
           GOOS=darwin GOARCH=amd64 go build \
             -ldflags \
             "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
-            -o release/maestro-mcp-darwin-amd64 ./src/main.go
+            -o release/maestro-mcp-darwin-amd64 \
+            ./src/main.go
           GOOS=darwin GOARCH=arm64 go build \
             -ldflags \
             "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
-            -o release/maestro-mcp-darwin-arm64 ./src/main.go
+            -o release/maestro-mcp-darwin-arm64 \
+            ./src/main.go
           GOOS=windows GOARCH=amd64 go build \
             -ldflags \
             "-X github.com/maximilien/maestro-mcp/src/pkg/config.Version=$VERSION" \
-            -o release/maestro-mcp-windows-amd64.exe ./src/main.go
+            -o release/maestro-mcp-windows-amd64.exe \
+            ./src/main.go
 
           # Make binaries executable
           chmod +x release/maestro-mcp-linux-amd64
@@ -158,7 +163,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-binaries-${{ steps.version.outputs.version }}

@@ -100,7 +100,7 @@ stop_server() {
                 print_status "Sent SIGTERM signal to server..."
                 
                 # Wait for graceful shutdown
-                for i in {1..30}; do
+                for _ in {1..30}; do
                     if ! ps -p "$PID" > /dev/null 2>&1; then
                         print_success "Server stopped gracefully"
                         rm -f maestro-mcp.pid
