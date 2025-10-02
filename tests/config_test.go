@@ -17,7 +17,7 @@ func TestConfigLoad(t *testing.T) {
 	assert.NotNil(t, cfg)
 	
 	// Test default values
-	assert.Equal(t, "0.1.0", cfg.Version)
+	assert.Equal(t, "0.0.1", cfg.Version)
 	assert.Equal(t, "localhost", cfg.Server.Host)
 	assert.Equal(t, 8030, cfg.Server.Port)
 	assert.Equal(t, "milvus", cfg.MCP.VectorDB.Type)
@@ -49,7 +49,7 @@ func TestConfigEnvironmentVariables(t *testing.T) {
 func TestConfigValidation(t *testing.T) {
 	// Test valid config
 	cfg := &config.Config{
-		Version: "0.1.0",
+		Version: "0.0.1",
 		Server: config.ServerConfig{
 			Host: "localhost",
 			Port: 8030,

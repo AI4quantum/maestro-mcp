@@ -132,7 +132,7 @@ func Load() (*Config, error) {
 
 // setDefaults sets default configuration values
 func setDefaults() {
-	viper.SetDefault("version", "0.1.0")
+	viper.SetDefault("version", "0.0.1")
 
 	// Server defaults
 	viper.SetDefault("server.host", "localhost")

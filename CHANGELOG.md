@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `delete_collection`: Delete a collection
 - `cleanup`: Clean up resources and close connections
 
-## [0.1.0] - 2025-01-02
+## [0.0.1] - 2025-01-02
 
 ### New Features
 

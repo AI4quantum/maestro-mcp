@@ -96,7 +96,7 @@ MAESTRO_MCP_LOGGING_FORMAT=json
 You can also use a `config.yaml` file:
 
 ```yaml
-version: "0.1.0"
+version: "0.0.1"
 
 server:
   host: "localhost"
@@ -543,7 +543,7 @@ For support and questions:
 
 ## Changelog
 
-### v0.1.0
+### v0.0.1
 
 - Initial release
 - Milvus and Weaviate support
