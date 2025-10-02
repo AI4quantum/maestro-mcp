@@ -25,28 +25,33 @@ databases.
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
    git clone https://github.com/maximilien/maestro-mcp.git
    cd maestro-mcp
    ```
 
 2. **Set up environment**:
+
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
 3. **Build the server**:
+
    ```bash
    ./build.sh
    ```
 
 4. **Run tests**:
+
    ```bash
    ./test.sh
    ```
 
 5. **Start the server**:
+
    ```bash
    ./start.sh
    ```
@@ -114,12 +119,14 @@ mcp:
 The MCP server provides the following tools:
 
 ### Database Management
+
 - `create_vector_database`: Create a new vector database instance
 - `list_databases`: List all available vector database instances
 - `setup_database`: Set up a vector database and create collections
 - `cleanup`: Clean up resources and close connections
 
 ### Document Operations
+
 - `write_document`: Write a single document to a vector database
 - `write_documents`: Write multiple documents to a vector database
 - `list_documents`: List documents from a vector database
@@ -128,10 +135,12 @@ The MCP server provides the following tools:
 - `delete_documents`: Delete multiple documents by IDs
 
 ### Query Operations
+
 - `query`: Query documents using natural language
 - `search`: Perform vector similarity search
 
 ### Collection Management
+
 - `list_collections`: List all collections in a vector database
 - `get_collection_info`: Get information about a collection
 - `create_collection`: Create a new collection
@@ -142,11 +151,13 @@ The MCP server provides the following tools:
 ### Using curl
 
 1. **List available tools**:
+
    ```bash
    curl http://localhost:8030/mcp/tools/list
    ```
 
 2. **Create a vector database**:
+
    ```bash
    curl -X POST http://localhost:8030/mcp/tools/call \
      -H "Content-Type: application/json" \
@@ -161,6 +172,7 @@ The MCP server provides the following tools:
    ```
 
 3. **Write a document**:
+
    ```bash
    curl -X POST http://localhost:8030/mcp/tools/call \
      -H "Content-Type: application/json" \
@@ -179,6 +191,7 @@ The MCP server provides the following tools:
    ```
 
 4. **Query documents**:
+
    ```bash
    curl -X POST http://localhost:8030/mcp/tools/call \
      -H "Content-Type: application/json" \
@@ -215,7 +228,7 @@ Add to your MCP client configuration:
 
 ### Project Structure
 
-```
+```text
 maestro-mcp/
 ├── src/                    # Source code
 │   ├── main.go            # Main entry point
@@ -347,6 +360,7 @@ Milvus is a vector database designed for scalable similarity search and AI
 applications.
 
 **Configuration**:
+
 ```bash
 MAESTRO_MCP_VECTOR_DB_TYPE=milvus
 MAESTRO_MCP_VECTOR_DB_MILVUS_HOST=localhost
@@ -361,6 +375,7 @@ Weaviate is an open-source vector database that allows you to store data objects
 and vector embeddings.
 
 **Configuration**:
+
 ```bash
 MAESTRO_MCP_VECTOR_DB_TYPE=weaviate
 MAESTRO_MCP_VECTOR_DB_WEAVIATE_URL=http://localhost:8080
@@ -395,21 +410,24 @@ MAESTRO_MCP_EMBEDDING_API_KEY=your_custom_api_key
 ## API Endpoints
 
 ### Health Check
-```
+
+```http
 GET /health
 ```
 
 Returns server health status and active vector databases.
 
 ### List Tools
-```
+
+```http
 GET /mcp/tools/list
 ```
 
 Returns all available MCP tools with their schemas.
 
 ### Call Tool
-```
+
+```http
 POST /mcp/tools/call
 Content-Type: application/json
 
@@ -484,7 +502,7 @@ Download the latest release from the
 - **macOS**: amd64, arm64 (Apple Silicon)
 - **Windows**: amd64
 
-### Installation
+### Binary Installation
 
 1. Download the appropriate binary for your platform
 2. Make it executable: `chmod +x maestro-mcp-*`
@@ -526,6 +544,7 @@ For support and questions:
 ## Changelog
 
 ### v0.1.0
+
 - Initial release
 - Milvus and Weaviate support
 - Mock database for testing
