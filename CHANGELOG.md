@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2025-01-02
+
+### Fixed
+
+- Resolved markdown linting issues in CHANGELOG.md
+- Fixed duplicate heading issues (MD024)
+- Changed 'Changed' to 'Changes' in v0.0.2 section
+- Changed 'Added' to 'Features Added' in v0.0.1 section
+- All markdown linting now passes successfully
+
 ## [0.0.3] - 2025-01-02
 
 ### Added
