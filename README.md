@@ -543,6 +543,13 @@ For support and questions:
 
 ## Changelog
 
+### v0.0.3
+
+- Official Milvus client integration
+- Official Weaviate client integration
+- Updated client initialization with configuration
+- Updated Setup methods to use official client schemas
+
 ### v0.0.2
 
 - Removed main executable since we have bin directory

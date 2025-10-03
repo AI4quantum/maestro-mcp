@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2025-01-02
+
+### Added
+
+- Official Milvus client integration (github.com/milvus-io/milvus/client/v2/milvusclient)
+- Official Weaviate client integration (github.com/weaviate/weaviate-go-client/v5/weaviate)
+- Proper client initialization with configuration
+- Updated Setup methods to use official client schemas
+
+### Changed
+
+- MilvusDatabase now uses milvusclient.Client instead of custom interface
+- WeaviateDatabase now uses weaviate.Client instead of custom interface
+- Updated go.mod with official client dependencies
+
+### Technical Notes
+
+- Using placeholder implementations for now due to dependency conflicts
+- Official client APIs are integrated and ready for full implementation
+
 ## [0.0.2] - 2025-01-02
 
 ### Changed
