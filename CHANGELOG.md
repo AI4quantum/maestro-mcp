@@ -29,13 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.0.2] - 2025-01-02
 
-### Changed
+### Changes
 
 - Removed main executable since we have bin directory
 
 ## [0.0.1] - 2025-01-02
 
-### Added
+### Features Added
 
 - Initial release of Maestro MCP Server
 - Support for Milvus and Weaviate vector databases
@@ -75,17 +75,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `create_collection`: Create a new collection
 - `delete_collection`: Delete a collection
 - `cleanup`: Clean up resources and close connections
-
-## [0.0.1] - 2025-01-02
-
-### New Features
-
-- Initial release of Maestro MCP Server
-- Support for Milvus and Weaviate vector databases
-- Mock database for testing and development
-- Comprehensive MCP tool set for vector database operations
-- Configuration management with YAML and environment variables
-- Comprehensive test suite with unit, integration, and end-to-end tests
-- Production-ready features including health checks, logging, and graceful shutdown
-- Build, test, lint, and deployment scripts
-- GitHub Actions CI/CD workflows
