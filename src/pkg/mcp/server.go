@@ -262,6 +262,208 @@ func (s *Server) registerTools() {
 		},
 		Handler: s.handleCleanup,
 	})
+
+	// Workflow and agent tools from Python MCP server
+	s.registerTool(Tool{
+		Name:        "run_workflow",
+		Description: "Run workflow with specified agents and workflow definitions",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agents": map[string]interface{}{
+					"type":        "array",
+					"description": "List of agent definitions",
+					"items": map[string]interface{}{
+						"type": "string",
+					},
+				},
+				"workflow": map[string]interface{}{
+					"type":        "string",
+					"description": "Workflow definition",
+				},
+			},
+			"required": []string{"agents", "workflow"},
+		},
+		Handler: s.handleRunWorkflow,
+	})
+
+	s.registerTool(Tool{
+		Name:        "create_agents",
+		Description: "Create agents from a list of agent definitions",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agents": map[string]interface{}{
+					"type":        "array",
+					"description": "List of agent definitions",
+					"items": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			"required": []string{"agents"},
+		},
+		Handler: s.handleCreateAgents,
+	})
+
+	s.registerTool(Tool{
+		Name:        "create_tools",
+		Description: "Create tools from a list of tool definitions",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"tools": map[string]interface{}{
+					"type":        "array",
+					"description": "List of tool definitions",
+					"items": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			"required": []string{"tools"},
+		},
+		Handler: s.handleCreateTools,
+	})
+
+	s.registerTool(Tool{
+		Name:        "serve_agent",
+		Description: "Serve an agent on a specified host and port",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agent": map[string]interface{}{
+					"type":        "string",
+					"description": "Agent definition",
+				},
+				"agent_name": map[string]interface{}{
+					"type":        "string",
+					"description": "Agent name in agent_definitions",
+				},
+				"host": map[string]interface{}{
+					"type":        "string",
+					"description": "Server IP",
+					"default":     "127.0.0.1",
+				},
+				"port": map[string]interface{}{
+					"type":        "integer",
+					"description": "Server port",
+					"default":     8001,
+				},
+			},
+			"required": []string{"agent"},
+		},
+		Handler: s.handleServeAgent,
+	})
+
+	s.registerTool(Tool{
+		Name:        "serve_workflow",
+		Description: "Serve a workflow on a specified host and port",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agents": map[string]interface{}{
+					"type":        "string",
+					"description": "List of agent definitions",
+				},
+				"workflow": map[string]interface{}{
+					"type":        "string",
+					"description": "Workflow definition",
+				},
+				"host": map[string]interface{}{
+					"type":        "string",
+					"description": "Server IP",
+					"default":     "127.0.0.1",
+				},
+				"port": map[string]interface{}{
+					"type":        "integer",
+					"description": "Server port",
+					"default":     8001,
+				},
+			},
+			"required": []string{"agents", "workflow"},
+		},
+		Handler: s.handleServeWorkflow,
+	})
+
+	s.registerTool(Tool{
+		Name:        "serve_container_agent",
+		Description: "Serve a containerized agent in a Kubernetes cluster",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"image_url": map[string]interface{}{
+					"type":        "string",
+					"description": "Agent container image registry URL",
+				},
+				"app_name": map[string]interface{}{
+					"type":        "string",
+					"description": "App name in the cluster",
+				},
+				"namespace": map[string]interface{}{
+					"type":        "string",
+					"description": "Kubernetes namespace",
+					"default":     "default",
+				},
+				"replicas": map[string]interface{}{
+					"type":        "integer",
+					"description": "Number of replicas",
+					"default":     1,
+				},
+				"container_port": map[string]interface{}{
+					"type":        "integer",
+					"description": "Container port",
+					"default":     80,
+				},
+				"service_port": map[string]interface{}{
+					"type":        "integer",
+					"description": "Service port",
+					"default":     80,
+				},
+				"service_type": map[string]interface{}{
+					"type":        "string",
+					"description": "Service type",
+					"default":     "LoadBalancer",
+				},
+				"node_port": map[string]interface{}{
+					"type":        "integer",
+					"description": "Node port",
+					"default":     30051,
+				},
+			},
+			"required": []string{"image_url", "app_name"},
+		},
+		Handler: s.handleServeContainerAgent,
+	})
+
+	s.registerTool(Tool{
+		Name:        "deploy_workflow",
+		Description: "Deploy a workflow to a target environment",
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"agents": map[string]interface{}{
+					"type":        "string",
+					"description": "Agents yaml file contents",
+				},
+				"workflow": map[string]interface{}{
+					"type":        "string",
+					"description": "Workflow yaml file contents",
+				},
+				"target": map[string]interface{}{
+					"type":        "string",
+					"description": "Deploy target type (docker, kubernetes, or streamlit)",
+					"default":     "streamlit",
+				},
+				"env": map[string]interface{}{
+					"type":        "string",
+					"description": "Environment variables set into container. Format: list of key=value string. Each key=value is separated by ','",
+					"default":     "",
+				},
+			},
+			"required": []string{"agents", "workflow"},
+		},
+		Handler: s.handleDeployWorkflow,
+	})
 }
 
 // registerTool registers a tool with the server
@@ -385,3 +587,5 @@ func (s *Server) getDatabaseByName(dbName string) (vectordb.VectorDatabase, erro
 
 	return db, nil
 }
+
+// Made with Bob

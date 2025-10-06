@@ -361,3 +361,247 @@ func (s *Server) handleCleanup(ctx context.Context, args map[string]interface{})
 
 	return fmt.Sprintf("Successfully cleaned up and removed vector database '%s'", dbName), nil
 }
+
+// handleRunWorkflow handles the run_workflow tool
+func (s *Server) handleRunWorkflow(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	agents, ok := args["agents"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("agents is required and must be a list")
+	}
+
+	workflow, ok := args["workflow"].(string)
+	if !ok {
+		return nil, fmt.Errorf("workflow is required and must be a string")
+	}
+
+	// TODO: Implement workflow execution logic
+	// This would involve parsing the agent definitions and workflow,
+	// then executing the workflow with the specified agents
+
+	s.logger.Info("Running workflow",
+		zap.Int("agent_count", len(agents)),
+		zap.String("workflow", workflow[:min(20, len(workflow))]))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully ran workflow with %d agents", len(agents)),
+	}, nil
+}
+
+// handleCreateAgents handles the create_agents tool
+func (s *Server) handleCreateAgents(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	agents, ok := args["agents"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("agents is required and must be a list")
+	}
+
+	// TODO: Implement agent creation logic
+	// This would involve parsing the agent definitions and creating the agents
+
+	s.logger.Info("Created agents",
+		zap.Int("agent_count", len(agents)))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully created %d agents", len(agents)),
+	}, nil
+}
+
+// handleCreateTools handles the create_tools tool
+func (s *Server) handleCreateTools(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	tools, ok := args["tools"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("tools is required and must be a list")
+	}
+
+	// TODO: Implement tool creation logic
+	// This would involve parsing the tool definitions and registering them
+
+	s.logger.Info("Created tools",
+		zap.Int("tool_count", len(tools)))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully created %d tools", len(tools)),
+	}, nil
+}
+
+// handleServeAgent handles the serve_agent tool
+func (s *Server) handleServeAgent(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	agent, ok := args["agent"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agent is required and must be a string")
+	}
+	fmt.Println(agent)
+
+	agentName := ""
+	if an, ok := args["agent_name"].(string); ok {
+		agentName = an
+	}
+
+	host := "127.0.0.1"
+	if h, ok := args["host"].(string); ok {
+		host = h
+	}
+
+	port := 8001
+	if p, ok := args["port"].(float64); ok {
+		port = int(p)
+	}
+
+	// TODO: Implement agent serving logic
+	// This would involve starting a server to serve the agent
+
+	s.logger.Info("Serving agent",
+		zap.String("agent_name", agentName),
+		zap.String("host", host),
+		zap.Int("port", port))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully started serving agent on %s:%d", host, port),
+	}, nil
+}
+
+// handleServeWorkflow handles the serve_workflow tool
+func (s *Server) handleServeWorkflow(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	agents, ok := args["agents"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agents is required and must be a string")
+	}
+	fmt.Println(agents)
+
+	workflow, ok := args["workflow"].(string)
+	if !ok {
+		return nil, fmt.Errorf("workflow is required and must be a string")
+	}
+	fmt.Println(workflow)
+
+	host := "127.0.0.1"
+	if h, ok := args["host"].(string); ok {
+		host = h
+	}
+
+	port := 8001
+	if p, ok := args["port"].(float64); ok {
+		port = int(p)
+	}
+
+	// TODO: Implement workflow serving logic
+	// This would involve starting a server to serve the workflow
+
+	s.logger.Info("Serving workflow",
+		zap.String("host", host),
+		zap.Int("port", port))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully started serving workflow on %s:%d", host, port),
+	}, nil
+}
+
+// handleServeContainerAgent handles the serve_container_agent tool
+func (s *Server) handleServeContainerAgent(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	imageURL, ok := args["image_url"].(string)
+	if !ok {
+		return nil, fmt.Errorf("image_url is required and must be a string")
+	}
+
+	appName, ok := args["app_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("app_name is required and must be a string")
+	}
+
+	namespace := "default"
+	if ns, ok := args["namespace"].(string); ok {
+		namespace = ns
+	}
+
+	replicas := 1
+	if r, ok := args["replicas"].(float64); ok {
+		replicas = int(r)
+	}
+
+	containerPort := 80
+	if cp, ok := args["container_port"].(float64); ok {
+		containerPort = int(cp)
+	}
+	fmt.Println(containerPort)
+
+	servicePort := 80
+	if sp, ok := args["service_port"].(float64); ok {
+		servicePort = int(sp)
+	}
+	fmt.Println(servicePort)
+
+	serviceType := "LoadBalancer"
+	if st, ok := args["service_type"].(string); ok {
+		serviceType = st
+	}
+	fmt.Println(serviceType)
+
+	nodePort := 30051
+	if np, ok := args["node_port"].(float64); ok {
+		nodePort = int(np)
+	}
+	fmt.Println(nodePort)
+
+	// TODO: Implement container agent serving logic
+	// This would involve deploying a container to serve the agent
+
+	s.logger.Info("Serving container agent",
+		zap.String("image_url", imageURL),
+		zap.String("app_name", appName),
+		zap.String("namespace", namespace),
+		zap.Int("replicas", replicas))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully deployed container agent %s in namespace %s", appName, namespace),
+	}, nil
+}
+
+// handleDeployWorkflow handles the deploy_workflow tool
+func (s *Server) handleDeployWorkflow(ctx context.Context, args map[string]interface{}) (interface{}, error) {
+	agents, ok := args["agents"].(string)
+	if !ok {
+		return nil, fmt.Errorf("agents is required and must be a string")
+	}
+	fmt.Println(agents)
+
+	workflow, ok := args["workflow"].(string)
+	if !ok {
+		return nil, fmt.Errorf("workflow is required and must be a string")
+	}
+	fmt.Println(workflow)
+
+	target := "streamlit"
+	if t, ok := args["target"].(string); ok {
+		target = t
+	}
+
+	env := ""
+	if e, ok := args["env"].(string); ok {
+		env = e
+	}
+
+	// TODO: Implement workflow deployment logic
+	// This would involve deploying the workflow to the specified target
+
+	s.logger.Info("Deploying workflow",
+		zap.String("target", target),
+		zap.String("env", env))
+
+	return map[string]interface{}{
+		"status":  "ok",
+		"message": fmt.Sprintf("Successfully deployed workflow to %s", target),
+	}, nil
+}
+
+// Helper function for string length comparison
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

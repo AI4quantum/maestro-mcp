@@ -47,16 +47,18 @@ print_help() {
     echo "Commands:"
     echo "  unit        Run only unit tests"
     echo "  integration Run only integration tests"
+    echo "  maestro     Run only maestro tools tests"
     echo "  fast        Run fast tests (unit + mock integration)"
-    echo "  all         Run all tests (unit + integration)"
+    echo "  all         Run all tests (unit + integration + maestro)"
     echo "  coverage    Run tests with coverage report"
     echo "  help        Show this help message"
     echo ""
     echo "Examples:"
     echo "  ./test.sh unit         # Run only unit tests"
     echo "  ./test.sh integration  # Run only integration tests"
+    echo "  ./test.sh maestro      # Run only maestro tools tests"
     echo "  ./test.sh fast         # Run fast tests (unit + mock integration)"
-    echo "  ./test.sh all          # Run all tests"
+    echo "  ./test.sh all          # Run all tests (unit + integration + maestro)"
     echo "  ./test.sh coverage     # Run tests with coverage report"
     echo "  ./test.sh              # Run unit tests (default)"
     echo ""
@@ -70,11 +72,17 @@ print_help() {
     echo "    - Vector database client testing"
     echo "    - MCP server testing"
     echo "    - End-to-end workflow testing"
+    echo ""
+    echo "  Maestro Tests:"
+    echo "    - Maestro workflow tools testing"
+    echo "    - Maestro agent tools testing"
+    echo "    - Maestro deployment tools testing"
 }
 
 # Initialize variables
 RUN_UNIT_TESTS=false
 RUN_INTEGRATION_TESTS=false
+RUN_MAESTRO_TESTS=false
 RUN_COVERAGE=false
 
 # Check command line arguments
@@ -82,26 +90,37 @@ case "${1:-unit}" in
     "unit")
         RUN_UNIT_TESTS=true
         RUN_INTEGRATION_TESTS=false
+        RUN_MAESTRO_TESTS=false
         RUN_COVERAGE=false
         ;;
     "integration")
         RUN_UNIT_TESTS=false
         RUN_INTEGRATION_TESTS=true
+        RUN_MAESTRO_TESTS=false
+        RUN_COVERAGE=false
+        ;;
+    "maestro")
+        RUN_UNIT_TESTS=false
+        RUN_INTEGRATION_TESTS=false
+        RUN_MAESTRO_TESTS=true
         RUN_COVERAGE=false
         ;;
     "fast")
         RUN_UNIT_TESTS=true
         RUN_INTEGRATION_TESTS=true
+        RUN_MAESTRO_TESTS=false
         RUN_COVERAGE=false
         ;;
     "all")
         RUN_UNIT_TESTS=true
         RUN_INTEGRATION_TESTS=true
+        RUN_MAESTRO_TESTS=true
         RUN_COVERAGE=false
         ;;
     "coverage")
         RUN_UNIT_TESTS=false
         RUN_INTEGRATION_TESTS=false
+        RUN_MAESTRO_TESTS=false
         RUN_COVERAGE=true
         ;;
     "help"|"-h"|"--help")
@@ -219,6 +238,26 @@ run_fast_tests() {
     print_success "Fast tests completed!"
 }
 
+# Function to run maestro tests
+run_maestro_tests() {
+    print_header "Running Maestro Tools Tests..."
+    
+    # Check if Go is installed
+    if ! command -v go >/dev/null 2>&1; then
+        print_error "Go is not installed. Please install Go 1.21 or later."
+        exit 1
+    fi
+    
+    # Run maestro tests - use the file path to run all tests in maestro_test.go
+    print_status "Running maestro tools tests..."
+    if go test -v -timeout=30s ./tests/maestro_test.go; then
+        print_success "Maestro tools tests passed!"
+    else
+        print_error "Maestro tools tests failed!"
+        exit 1
+    fi
+}
+
 # Function to run coverage tests
 run_coverage_tests() {
     print_header "Running Coverage Analysis..."
@@ -232,9 +271,9 @@ run_coverage_tests() {
     # Create coverage directory
     mkdir -p coverage
     
-    # Run tests with coverage (only unit tests and mock integration tests)
+    # Run tests with coverage (unit tests, mock integration tests, and maestro tests)
     print_status "Running tests with coverage..."
-    if go test -coverprofile=coverage/coverage.out -covermode=atomic ./tests/... -run="TestConfig|TestMock|TestMCP|TestFastMock|TestFastConfig"; then
+    if go test -coverprofile=coverage/coverage.out -covermode=atomic ./tests/... -run="TestConfig|TestMock|TestMCP|TestFastMock|TestFastConfig" ./tests/maestro_test.go; then
         print_status "Generating coverage report..."
         
         # Generate HTML coverage report
@@ -262,11 +301,18 @@ if [ "$RUN_UNIT_TESTS" = true ] && [ "$RUN_INTEGRATION_TESTS" = true ]; then
     else
         run_unit_tests
         run_integration_tests
+        
+        # Run maestro tests if requested
+        if [ "$RUN_MAESTRO_TESTS" = true ]; then
+            run_maestro_tests
+        fi
     fi
 elif [ "$RUN_UNIT_TESTS" = true ]; then
     run_unit_tests
 elif [ "$RUN_INTEGRATION_TESTS" = true ]; then
     run_integration_tests
+elif [ "$RUN_MAESTRO_TESTS" = true ]; then
+    run_maestro_tests
 fi
 
 # Run coverage tests if requested
