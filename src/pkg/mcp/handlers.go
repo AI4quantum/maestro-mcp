@@ -2,8 +2,12 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 
+	"github.com/AI4quantum/maestro-mcp/src/pkg/maestro"
 	"github.com/AI4quantum/maestro-mcp/src/pkg/vectordb"
 	"go.uber.org/zap"
 )
@@ -364,7 +368,7 @@ func (s *Server) handleCleanup(ctx context.Context, args map[string]interface{})
 
 // handleRunWorkflow handles the run_workflow tool
 func (s *Server) handleRunWorkflow(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-	agents, ok := args["agents"].([]interface{})
+	agentsRaw, ok := args["agents"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("agents is required and must be a list")
 	}
@@ -374,55 +378,141 @@ func (s *Server) handleRunWorkflow(ctx context.Context, args map[string]interfac
 		return nil, fmt.Errorf("workflow is required and must be a string")
 	}
 
-	// TODO: Implement workflow execution logic
-	// This would involve parsing the agent definitions and workflow,
-	// then executing the workflow with the specified agents
+	// Parse workflow definition
+	var workflowDef map[string]interface{}
+	if err := json.Unmarshal([]byte(workflow), &workflowDef); err != nil {
+		return nil, fmt.Errorf("invalid workflow definition: %w", err)
+	}
+
+	// Parse agent definitions
+	agentDefs := make([]map[string]interface{}, 0, len(agentsRaw))
+	for i, agentRaw := range agentsRaw {
+		agentStr, ok := agentRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("agent at index %d is not a string", i)
+		}
+
+		var agentDef map[string]interface{}
+		if err := json.Unmarshal([]byte(agentStr), &agentDef); err != nil {
+			return nil, fmt.Errorf("invalid agent definition at index %d: %w", i, err)
+		}
+		agentDefs = append(agentDefs, agentDef)
+	}
+
+	// Generate workflow ID
+	workflowID := fmt.Sprintf("wf-%s", time.Now().Format("20060102-150405"))
+
+	// Create workflow execution context with timeout
+	execCtx, cancel := context.WithTimeout(ctx, s.config.GetTimeout("run_workflow"))
+	defer cancel()
+
+	// Create workflow instance
+	workflowObj, err := maestro.NewWorkflow(
+		agentDefs,
+		workflowDef,
+		workflowID,
+		s.logger,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow: %w", err)
+	}
+	defer workflowObj.Close()
+
+	// Extract prompt from workflow definition if available
+	var prompt string
+	if template, ok := workflowDef["spec"].(map[string]interface{}); ok {
+		if templateObj, ok := template["template"].(map[string]interface{}); ok {
+			if p, ok := templateObj["prompt"].(string); ok {
+				prompt = p
+			}
+		}
+	}
+
+	// Run the workflow
+	result, err := workflowObj.Run(execCtx, prompt)
+	if err != nil {
+		return nil, fmt.Errorf("workflow execution failed: %w", err)
+	}
 
 	s.logger.Info("Running workflow",
-		zap.Int("agent_count", len(agents)),
-		zap.String("workflow", workflow[:min(20, len(workflow))]))
+		zap.Int("agent_count", len(agentDefs)),
+		zap.String("workflow_id", workflowID),
+		zap.String("workflow_preview", workflow[:min(20, len(workflow))]))
 
 	return map[string]interface{}{
-		"status":  "ok",
-		"message": fmt.Sprintf("Successfully ran workflow with %d agents", len(agents)),
+		"status":       "ok",
+		"message":      fmt.Sprintf("Successfully ran workflow with %d agents", len(agentDefs)),
+		"workflow_id":  workflowID,
+		"final_prompt": result.FinalPrompt,
+		"step_results": result.StepResults,
 	}, nil
 }
 
 // handleCreateAgents handles the create_agents tool
 func (s *Server) handleCreateAgents(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-	agents, ok := args["agents"].([]interface{})
+	agentsRaw, ok := args["agents"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("agents is required and must be a list")
 	}
 
+	// Parse agent definitions
+	agentDefs := make([]map[string]interface{}, 0, len(agentsRaw))
+	for i, agentRaw := range agentsRaw {
+		agentStr, ok := agentRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("agent at index %d is not a string", i)
+		}
+
+		var agentDef map[string]interface{}
+		if err := json.Unmarshal([]byte(agentStr), &agentDef); err != nil {
+			return nil, fmt.Errorf("invalid agent definition at index %d: %w", i, err)
+		}
+		agentDefs = append(agentDefs, agentDef)
+	}
+
 	// TODO: Implement agent creation logic
-	// This would involve parsing the agent definitions and creating the agents
+	// This would involve creating the agents from the parsed definitions
 
 	s.logger.Info("Created agents",
-		zap.Int("agent_count", len(agents)))
+		zap.Int("agent_count", len(agentDefs)))
 
 	return map[string]interface{}{
 		"status":  "ok",
-		"message": fmt.Sprintf("Successfully created %d agents", len(agents)),
+		"message": fmt.Sprintf("Successfully created %d agents", len(agentDefs)),
 	}, nil
 }
 
 // handleCreateTools handles the create_tools tool
 func (s *Server) handleCreateTools(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-	tools, ok := args["tools"].([]interface{})
+	toolsRaw, ok := args["tools"].([]interface{})
 	if !ok {
 		return nil, fmt.Errorf("tools is required and must be a list")
 	}
 
+	// Parse tool definitions
+	toolDefs := make([]map[string]interface{}, 0, len(toolsRaw))
+	for i, toolRaw := range toolsRaw {
+		toolStr, ok := toolRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("tool at index %d is not a string", i)
+		}
+
+		var toolDef map[string]interface{}
+		if err := json.Unmarshal([]byte(toolStr), &toolDef); err != nil {
+			return nil, fmt.Errorf("invalid tool definition at index %d: %w", i, err)
+		}
+		toolDefs = append(toolDefs, toolDef)
+	}
+
 	// TODO: Implement tool creation logic
-	// This would involve parsing the tool definitions and registering them
+	// This would involve registering the tools from the parsed definitions
 
 	s.logger.Info("Created tools",
-		zap.Int("tool_count", len(tools)))
+		zap.Int("tool_count", len(toolDefs)))
 
 	return map[string]interface{}{
 		"status":  "ok",
-		"message": fmt.Sprintf("Successfully created %d tools", len(tools)),
+		"message": fmt.Sprintf("Successfully created %d tools", len(toolDefs)),
 	}, nil
 }
 
@@ -449,8 +539,27 @@ func (s *Server) handleServeAgent(ctx context.Context, args map[string]interface
 		port = int(p)
 	}
 
-	// TODO: Implement agent serving logic
-	// This would involve starting a server to serve the agent
+	// Parse agent definition if needed
+	var agentDef map[string]interface{}
+	if err := json.Unmarshal([]byte(agent), &agentDef); err != nil {
+		return nil, fmt.Errorf("invalid agent definition: %w", err)
+	}
+
+	// Create a temporary file to store the agent definition
+	tempAgentFile := fmt.Sprintf("agent_%s.yaml", time.Now().Format("20060102_150405"))
+
+	// TODO: Convert agent definition to YAML and write to file
+
+	// Serve the agent
+	go func() {
+		if err := maestro.ServeAgent(tempAgentFile, agentName, host, port); err != nil {
+			s.logger.Error("Failed to serve agent",
+				zap.String("agent_name", agentName),
+				zap.String("host", host),
+				zap.Int("port", port),
+				zap.Error(err))
+		}
+	}()
 
 	s.logger.Info("Serving agent",
 		zap.String("agent_name", agentName),
@@ -486,9 +595,35 @@ func (s *Server) handleServeWorkflow(ctx context.Context, args map[string]interf
 	if p, ok := args["port"].(float64); ok {
 		port = int(p)
 	}
+	// Create temporary files to store the agent and workflow definitions
+	tempAgentsFile := fmt.Sprintf("agents_%s.yaml", time.Now().Format("20060102_150405"))
+	tempWorkflowFile := fmt.Sprintf("workflow_%s.yaml", time.Now().Format("20060102_150405"))
 
-	// TODO: Implement workflow serving logic
-	// This would involve starting a server to serve the workflow
+	// Write agents to file
+	if err := os.WriteFile(tempAgentsFile, []byte(agents), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write agents to file: %w", err)
+	}
+
+	// Write workflow to file
+	if err := os.WriteFile(tempWorkflowFile, []byte(workflow), 0644); err != nil {
+		// Clean up agents file
+		os.Remove(tempAgentsFile)
+		return nil, fmt.Errorf("failed to write workflow to file: %w", err)
+	}
+
+	// Serve the workflow in a goroutine
+	go func() {
+		if err := maestro.ServeWorkflow(tempAgentsFile, tempWorkflowFile, host, port); err != nil {
+			s.logger.Error("Failed to serve workflow",
+				zap.String("host", host),
+				zap.Int("port", port),
+				zap.Error(err))
+
+			// Clean up temporary files
+			os.Remove(tempAgentsFile)
+			os.Remove(tempWorkflowFile)
+		}
+	}()
 
 	s.logger.Info("Serving workflow",
 		zap.String("host", host),
@@ -502,62 +637,54 @@ func (s *Server) handleServeWorkflow(ctx context.Context, args map[string]interf
 
 // handleServeContainerAgent handles the serve_container_agent tool
 func (s *Server) handleServeContainerAgent(ctx context.Context, args map[string]interface{}) (interface{}, error) {
-	imageURL, ok := args["image_url"].(string)
+	agent, ok := args["agent"].(string)
 	if !ok {
-		return nil, fmt.Errorf("image_url is required and must be a string")
+		return nil, fmt.Errorf("agent is required and must be a string")
 	}
 
-	appName, ok := args["app_name"].(string)
-	if !ok {
-		return nil, fmt.Errorf("app_name is required and must be a string")
+	agentName := ""
+	if an, ok := args["agent_name"].(string); ok {
+		agentName = an
 	}
 
-	namespace := "default"
-	if ns, ok := args["namespace"].(string); ok {
-		namespace = ns
+	host := "127.0.0.1"
+	if h, ok := args["host"].(string); ok {
+		host = h
 	}
 
-	replicas := 1
-	if r, ok := args["replicas"].(float64); ok {
-		replicas = int(r)
+	port := 8001
+	if p, ok := args["port"].(float64); ok {
+		port = int(p)
 	}
 
-	containerPort := 80
-	if cp, ok := args["container_port"].(float64); ok {
-		containerPort = int(cp)
+	// Create a temporary file to store the agent definition
+	tempAgentFile := fmt.Sprintf("agent_%s.yaml", time.Now().Format("20060102_150405"))
+
+	// Write agent definition to file
+	if err := os.WriteFile(tempAgentFile, []byte(agent), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write agent to file: %w", err)
 	}
-	fmt.Println(containerPort)
 
-	servicePort := 80
-	if sp, ok := args["service_port"].(float64); ok {
-		servicePort = int(sp)
-	}
-	fmt.Println(servicePort)
+	// Create and deploy the containerized agent
+	go func() {
+		if err := maestro.CreateContaineredAgent(tempAgentFile, agentName, host, port, s.logger); err != nil {
+			s.logger.Error("Failed to create containerized agent",
+				zap.String("agent_name", agentName),
+				zap.Error(err))
 
-	serviceType := "LoadBalancer"
-	if st, ok := args["service_type"].(string); ok {
-		serviceType = st
-	}
-	fmt.Println(serviceType)
+			// Clean up temporary file
+			os.Remove(tempAgentFile)
+		}
+	}()
 
-	nodePort := 30051
-	if np, ok := args["node_port"].(float64); ok {
-		nodePort = int(np)
-	}
-	fmt.Println(nodePort)
-
-	// TODO: Implement container agent serving logic
-	// This would involve deploying a container to serve the agent
-
-	s.logger.Info("Serving container agent",
-		zap.String("image_url", imageURL),
-		zap.String("app_name", appName),
-		zap.String("namespace", namespace),
-		zap.Int("replicas", replicas))
+	s.logger.Info("Creating containerized agent",
+		zap.String("agent_name", agentName),
+		zap.String("host", host),
+		zap.Int("port", port))
 
 	return map[string]interface{}{
 		"status":  "ok",
-		"message": fmt.Sprintf("Successfully deployed container agent %s in namespace %s", appName, namespace),
+		"message": fmt.Sprintf("Successfully started creating containerized agent %s", agentName),
 	}, nil
 }
 
@@ -604,4 +731,13 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// Helper function to convert map[string]string to map[string]interface{}
+func convertMapToStringMap(m map[string]string) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		result[k] = v
+	}
+	return result
 }

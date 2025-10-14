@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"testing"
 
 	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
@@ -42,27 +43,200 @@ func TestRunWorkflow(t *testing.T) {
 	// Test with valid arguments
 	args := map[string]interface{}{
 		"agents": []interface{}{
-			`{"name": "agent1", "type": "llm", "config": {}}`,
-			`{"name": "agent2", "type": "llm", "config": {}}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test1",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test2",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test3",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test4",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test5",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
 		},
-		"workflow": `{"name": "test_workflow", "steps": []}`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"exception": {
+						"name": "step4",
+						"agent": "test4"
+					},
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						},
+						{
+							"name": "step2",
+							"agent": "test2"
+						},
+						{
+							"name": "step3",
+							"agent": "test3"
+						}
+					]
+				}
+			}
+		}`,
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing agents
-		"workflow": `{"name": "test_workflow", "steps": []}`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
 	})
 	assert.Error(t, err)
 
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		"agents": []interface{}{
-			`{"name": "agent1", "type": "llm", "config": {}}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test1",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
 		},
 		// Missing workflow
 	})
@@ -80,18 +254,52 @@ func TestCreateAgents(t *testing.T) {
 	// Test with valid arguments
 	args := map[string]interface{}{
 		"agents": []interface{}{
-			`{"name": "agent1", "type": "llm", "config": {}}`,
-			`{"name": "agent2", "type": "llm", "config": {}}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test1",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
+			`{
+				"apiVersion": "maestro/v1alpha1",
+				"kind": "Agent",
+				"metadata": {
+					"name": "test2",
+					"labels": {
+						"app": "test-example"
+					}
+				},
+				"spec": {
+					"model": "meta-llama/llama-3-1-70b-instruct",
+					"framework": "beeai",
+					"mode": "local",
+					"description": "this is a test",
+					"tools": ["code_interpreter", "test"],
+					"instructions": "print(\"this is a test.\")"
+				}
+			}`,
 		},
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing agents
 	})
 	assert.Error(t, err)
@@ -113,13 +321,13 @@ func TestCreateTools(t *testing.T) {
 		},
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing tools
 	})
 	assert.Error(t, err)
@@ -135,19 +343,36 @@ func TestServeAgent(t *testing.T) {
 
 	// Test with valid arguments
 	args := map[string]interface{}{
-		"agent":      `{"name": "agent1", "type": "llm", "config": {}}`,
+		"agent": `{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}`,
 		"agent_name": "test_agent",
 		"host":       "127.0.0.1",
 		"port":       float64(8001),
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing agent
 		"agent_name": "test_agent",
 		"host":       "127.0.0.1",
@@ -157,11 +382,28 @@ func TestServeAgent(t *testing.T) {
 
 	// Test with default values for optional arguments
 	args = map[string]interface{}{
-		"agent": `{"name": "agent1", "type": "llm", "config": {}}`,
+		"agent": `{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}`,
 		// agent_name, host, and port are optional with defaults
 	}
 
-	result, err = tool.Handler(nil, args)
+	result, err = tool.Handler(context.Background(), args)
 	t.Logf("Result with defaults: %v, Error: %v", result, err)
 }
 
@@ -175,28 +417,118 @@ func TestServeWorkflow(t *testing.T) {
 
 	// Test with valid arguments
 	args := map[string]interface{}{
-		"agents":   `[{"name": "agent1", "type": "llm", "config": {}}]`,
-		"workflow": `{"name": "test_workflow", "steps": []}`,
-		"host":     "127.0.0.1",
-		"port":     float64(8001),
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
+		"host": "127.0.0.1",
+		"port": float64(8001),
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing agents
-		"workflow": `{"name": "test_workflow", "steps": []}`,
-		"host":     "127.0.0.1",
-		"port":     float64(8001),
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
+		"host": "127.0.0.1",
+		"port": float64(8001),
 	})
 	assert.Error(t, err)
 
-	_, err = tool.Handler(nil, map[string]interface{}{
-		"agents": `[{"name": "agent1", "type": "llm", "config": {}}]`,
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
 		// Missing workflow
 		"host": "127.0.0.1",
 		"port": float64(8001),
@@ -205,12 +537,57 @@ func TestServeWorkflow(t *testing.T) {
 
 	// Test with default values for optional arguments
 	args = map[string]interface{}{
-		"agents":   `[{"name": "agent1", "type": "llm", "config": {}}]`,
-		"workflow": `{"name": "test_workflow", "steps": []}`,
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
 		// host and port are optional with defaults
 	}
 
-	result, err = tool.Handler(nil, args)
+	result, err = tool.Handler(context.Background(), args)
 	t.Logf("Result with defaults: %v, Error: %v", result, err)
 }
 
@@ -234,13 +611,13 @@ func TestServeContainerAgent(t *testing.T) {
 		"node_port":      float64(30051),
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing image_url
 		"app_name":       "test-agent",
 		"namespace":      "default",
@@ -252,7 +629,7 @@ func TestServeContainerAgent(t *testing.T) {
 	})
 	assert.Error(t, err)
 
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		"image_url": "registry.example.com/agent:latest",
 		// Missing app_name
 		"namespace":      "default",
@@ -271,7 +648,7 @@ func TestServeContainerAgent(t *testing.T) {
 		// All other parameters are optional with defaults
 	}
 
-	result, err = tool.Handler(nil, args)
+	result, err = tool.Handler(context.Background(), args)
 	t.Logf("Result with defaults: %v, Error: %v", result, err)
 }
 
@@ -285,28 +662,118 @@ func TestDeployWorkflow(t *testing.T) {
 
 	// Test with valid arguments
 	args := map[string]interface{}{
-		"agents":   "agents:\n  - name: agent1\n    type: llm\n",
-		"workflow": "name: test_workflow\nsteps: []\n",
-		"target":   "docker",
-		"env":      "KEY1=value1,KEY2=value2",
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
+		"target": "docker",
+		"env":    "KEY1=value1,KEY2=value2",
 	}
 
-	result, err := tool.Handler(nil, args)
+	result, err := tool.Handler(context.Background(), args)
 	// Since this is a template implementation, we expect an error or a placeholder result
 	// In a real implementation, we would check for specific success conditions
 	t.Logf("Result: %v, Error: %v", result, err)
 
 	// Test with missing required arguments
-	_, err = tool.Handler(nil, map[string]interface{}{
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
 		// Missing agents
-		"workflow": "name: test_workflow\nsteps: []\n",
-		"target":   "docker",
-		"env":      "KEY1=value1,KEY2=value2",
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
+		"target": "docker",
+		"env":    "KEY1=value1,KEY2=value2",
 	})
 	assert.Error(t, err)
 
-	_, err = tool.Handler(nil, map[string]interface{}{
-		"agents": "agents:\n  - name: agent1\n    type: llm\n",
+	_, err = tool.Handler(context.Background(), map[string]interface{}{
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
 		// Missing workflow
 		"target": "docker",
 		"env":    "KEY1=value1,KEY2=value2",
@@ -315,12 +782,57 @@ func TestDeployWorkflow(t *testing.T) {
 
 	// Test with default values for optional arguments
 	args = map[string]interface{}{
-		"agents":   "agents:\n  - name: agent1\n    type: llm\n",
-		"workflow": "name: test_workflow\nsteps: []\n",
+		"agents": `[{
+			"apiVersion": "maestro/v1alpha1",
+			"kind": "Agent",
+			"metadata": {
+				"name": "test1",
+				"labels": {
+					"app": "test-example"
+				}
+			},
+			"spec": {
+				"model": "meta-llama/llama-3-1-70b-instruct",
+				"framework": "beeai",
+				"mode": "local",
+				"description": "this is a test",
+				"tools": ["code_interpreter", "test"],
+				"instructions": "print(\"this is a test.\")"
+			}
+		}]`,
+		"workflow": `{
+			"apiVersion": "maestro/v1",
+			"kind": "Workflow",
+			"metadata": {
+				"name": "simple workflow",
+				"labels": {
+					"app": "example2"
+				}
+			},
+			"spec": {
+				"template": {
+					"metadata": {
+						"name": "maestro-deployment",
+						"labels": {
+							"app": "example",
+							"use-case": "test"
+						}
+					},
+					"agents": ["test1", "test2", "test3", "test4"],
+					"prompt": "This is a test input",
+					"steps": [
+						{
+							"name": "step1",
+							"agent": "test1"
+						}
+					]
+				}
+			}
+		}`,
 		// target and env are optional with defaults
 	}
 
-	result, err = tool.Handler(nil, args)
+	result, err = tool.Handler(context.Background(), args)
 	t.Logf("Result with defaults: %v, Error: %v", result, err)
 }
 

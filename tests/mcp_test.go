@@ -23,9 +23,9 @@ func TestMCPServerCreation(t *testing.T) {
 			},
 		},
 	}
-	
+
 	logger, _ := zap.NewProduction()
-	
+
 	server, err := mcp.NewServer(cfg, logger)
 	require.NoError(t, err)
 	assert.NotNil(t, server)
@@ -44,13 +44,14 @@ func TestMCPServerToolsRegistration(t *testing.T) {
 			},
 		},
 	}
-	
+
 	logger, _ := zap.NewProduction()
 	server, err := mcp.NewServer(cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Test that tools are registered
 	expectedTools := []string{
+		// Vector database tools
 		"create_vector_database",
 		"list_databases",
 		"setup_database",
@@ -60,8 +61,17 @@ func TestMCPServerToolsRegistration(t *testing.T) {
 		"count_documents",
 		"delete_document",
 		"cleanup",
+
+		// Workflow and agent tools from Python MCP server
+		"run_workflow",
+		"create_agents",
+		"create_tools",
+		"serve_agent",
+		"serve_workflow",
+		"serve_container_agent",
+		"deploy_workflow",
 	}
-	
+
 	for _, toolName := range expectedTools {
 		_, exists := server.Tools[toolName]
 		assert.True(t, exists, "Tool %s should be registered", toolName)
@@ -81,22 +91,22 @@ func TestMCPServerCreateVectorDatabase(t *testing.T) {
 			},
 		},
 	}
-	
+
 	logger, _ := zap.NewProduction()
 	server, err := mcp.NewServer(cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Get the create_vector_database tool
 	tool, exists := server.Tools["create_vector_database"]
 	require.True(t, exists)
-	
+
 	// Test creating a vector database
 	args := map[string]interface{}{
-		"db_name":        "test_db",
-		"db_type":        "milvus",
+		"db_name":         "test_db",
+		"db_type":         "milvus",
 		"collection_name": "test_collection",
 	}
-	
+
 	result, err := tool.Handler(nil, args)
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -116,15 +126,15 @@ func TestMCPServerListDatabasesEmpty(t *testing.T) {
 			},
 		},
 	}
-	
+
 	logger, _ := zap.NewProduction()
 	server, err := mcp.NewServer(cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Test listing empty databases
 	listTool, exists := server.Tools["list_databases"]
 	require.True(t, exists)
-	
+
 	result, err := listTool.Handler(nil, map[string]interface{}{})
 	assert.NoError(t, err)
 	assert.Equal(t, "No vector databases are currently active", result)
@@ -143,22 +153,22 @@ func TestMCPServerInvalidArguments(t *testing.T) {
 			},
 		},
 	}
-	
+
 	logger, _ := zap.NewProduction()
 	server, err := mcp.NewServer(cfg, logger)
 	require.NoError(t, err)
-	
+
 	// Test missing required arguments
 	createTool, exists := server.Tools["create_vector_database"]
 	require.True(t, exists)
-	
+
 	_, err = createTool.Handler(nil, map[string]interface{}{
 		"db_name": "test_db",
 		// Missing db_type
 	})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "db_type is required")
-	
+
 	_, err = createTool.Handler(nil, map[string]interface{}{
 		"db_type": "milvus",
 		// Missing db_name
