@@ -194,8 +194,15 @@ func TestAgentPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get current directory: %v", err)
 	}
-	defer os.Chdir(originalDir)
-	os.Chdir(tempDir)
+	defer func() {
+		if err := os.Chdir(originalDir); err != nil {
+			t.Fatalf("Failed to change back to original directory: %v", err)
+		}
+	}()
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("Failed to change to temp directory: %v", err)
+	}
 
 	// Create a test agent
 	agent := &Agent{
@@ -257,9 +264,12 @@ func TestAgentPersistence(t *testing.T) {
 	}
 
 	// Try to restore the agent again
-	_, isAgent, err = RestoreAgent("test-agent")
+	_, isAgent, restoreErr := RestoreAgent("test-agent")
 	if isAgent {
 		t.Error("Expected agent to be removed")
+	}
+	if restoreErr != nil {
+		t.Logf("Restore error after removal: %v", restoreErr)
 	}
 }
 

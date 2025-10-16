@@ -181,9 +181,15 @@ func (s *WorkflowServer) SetupRoutes() {
 			event := StreamEvent{
 				Error: err.Error(),
 			}
-			data, _ := json.Marshal(event)
-			c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
-			c.Writer.Flush()
+			data, err := json.Marshal(event)
+			if err != nil {
+				log.Printf("Error marshaling event: %v", err)
+			} else {
+				if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+					log.Printf("Error writing response: %v", err)
+				}
+				c.Writer.Flush()
+			}
 			return
 		}
 
@@ -193,8 +199,14 @@ func (s *WorkflowServer) SetupRoutes() {
 				event := StreamEvent{
 					Error: result.Error.Error(),
 				}
-				data, _ := json.Marshal(event)
-				c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
+				data, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("Error marshaling event: %v", err)
+					continue
+				}
+				if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+					log.Printf("Error writing response: %v", err)
+				}
 				c.Writer.Flush()
 				continue
 			}
@@ -205,8 +217,14 @@ func (s *WorkflowServer) SetupRoutes() {
 					WorkflowName:     s.WorkflowName,
 					WorkflowComplete: true,
 				}
-				data, _ := json.Marshal(event)
-				c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
+				data, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("Error marshaling event: %v", err)
+					continue
+				}
+				if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+					log.Printf("Error writing response: %v", err)
+				}
 				c.Writer.Flush()
 				continue
 			}
@@ -217,8 +235,14 @@ func (s *WorkflowServer) SetupRoutes() {
 				AgentName:    result.AgentName,
 				StepComplete: true,
 			}
-			data, _ := json.Marshal(event)
-			c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
+			data, err := json.Marshal(event)
+			if err != nil {
+				log.Printf("Error marshaling event: %v", err)
+				continue
+			}
+			if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+				log.Printf("Error writing response: %v", err)
+			}
 			c.Writer.Flush()
 		}
 	})

@@ -74,7 +74,9 @@ func NewOpenAIAgent(agent map[string]interface{}) (interface{}, error) {
 	// Get max tokens from environment
 	maxTokens := 0
 	if maxTokensStr := os.Getenv("MAESTRO_OPENAI_MAX_TOKENS"); maxTokensStr != "" {
-		fmt.Sscanf(maxTokensStr, "%d", &maxTokens)
+		if _, err := fmt.Sscanf(maxTokensStr, "%d", &maxTokens); err != nil {
+			baseAgent.Print(fmt.Sprintf("WARN: Failed to parse MAESTRO_OPENAI_MAX_TOKENS: %v", err))
+		}
 	}
 
 	// Get extra headers from environment

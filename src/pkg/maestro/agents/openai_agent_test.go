@@ -158,7 +158,7 @@ func TestOpenAIAgentRun(t *testing.T) {
 		// Return a mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		if err := json.NewEncoder(w).Encode(map[string]interface{}{
 			"choices": []map[string]interface{}{
 				{
 					"message": map[string]interface{}{
@@ -166,7 +166,9 @@ func TestOpenAIAgentRun(t *testing.T) {
 					},
 				},
 			},
-		})
+		}); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -246,10 +248,18 @@ func TestOpenAIAgentRunStreaming(t *testing.T) {
 		// In a real implementation, this would be a proper SSE stream
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"This is a \"}}]}\n\n"))
-		w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"streaming response\"}}]}\n\n"))
-		w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\" from OpenAI\"}}]}\n\n"))
-		w.Write([]byte("data: [DONE]\n\n"))
+		if _, err := w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"This is a \"}}]}\n\n")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
+		if _, err := w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\"streaming response\"}}]}\n\n")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
+		if _, err := w.Write([]byte("data: {\"choices\":[{\"delta\":{\"content\":\" from OpenAI\"}}]}\n\n")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
+		if _, err := w.Write([]byte("data: [DONE]\n\n")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 

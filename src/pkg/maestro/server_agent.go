@@ -173,7 +173,9 @@ func (s *AgentServer) SetupRoutes() {
 					Error: err.Error(),
 				}
 				data, _ := json.Marshal(event)
-				c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
+				if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+					log.Printf("Error writing response: %v", err)
+				}
 				c.Writer.Flush()
 				return
 			}
@@ -184,7 +186,9 @@ func (s *AgentServer) SetupRoutes() {
 				AgentName: agent.GetName(),
 			}
 			data, _ := json.Marshal(event)
-			c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data)))
+			if _, err := c.Writer.Write([]byte(fmt.Sprintf("data: %s\n\n", data))); err != nil {
+				log.Printf("Error writing response: %v", err)
+			}
 			c.Writer.Flush()
 			return
 		}
