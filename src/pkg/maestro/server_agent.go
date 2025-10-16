@@ -115,7 +115,7 @@ func (s *AgentServer) LoadAgents() error {
 		}
 
 		mode, _ := spec["mode"].(string)
-		agentClass, err := getAgentClass(framework, mode)
+		agentClass, err := getAgentClass(framework, mode, agentDef)
 		if err != nil {
 			return fmt.Errorf("failed to get agent class: %w", err)
 		}

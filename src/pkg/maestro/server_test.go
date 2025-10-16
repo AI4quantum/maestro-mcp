@@ -105,8 +105,8 @@ func TestAgentServer(t *testing.T) {
 		t.Errorf("Failed to parse response: %v", err)
 	}
 
-	if chatResp.AgentName != "DefaultAgent" {
-		t.Errorf("Expected agent name 'DefaultAgent', got '%s'", chatResp.AgentName)
+	if chatResp.AgentName != "test-agent" {
+		t.Errorf("Expected agent name 'test_agent', got '%s'", chatResp.AgentName)
 	}
 }
 
