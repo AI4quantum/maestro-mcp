@@ -31,6 +31,8 @@ func TestNewCrewAIAgent(t *testing.T) {
 			},
 			"spec": map[string]interface{}{
 				"framework": "crewai",
+				"model":     "ollama/llama3.1",
+				"url":       "http://localhost:11434",
 			},
 		}
 

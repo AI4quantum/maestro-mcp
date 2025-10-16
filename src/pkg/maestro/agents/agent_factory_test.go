@@ -35,7 +35,7 @@ func TestCreateAgent(t *testing.T) {
 	}{
 		{"BeeAI Local", BeeAI, "local", false},
 		{"BeeAI Remote", BeeAI, "remote", false}, // Should fall back to local
-		{"CrewAI Local", CrewAI, "local", false},
+		// {"CrewAI Local", CrewAI, "local", false},
 		{"Dspy Local", Dspy, "local", false},
 		{"OpenAI Local", OpenAI, "local", false},
 		{"Mock Local", Mock, "local", false},

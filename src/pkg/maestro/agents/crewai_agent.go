@@ -77,12 +77,24 @@ func NewCrewAIAgent(agent map[string]interface{}) (interface{}, error) {
 		crewAgent.FactoryName = factoryName
 	} else {
 		// Using direct configuration
-		crewAgent.ProviderURL = spec["url"].(string)
-		crewAgent.CrewRole = labels["crew_role"].(string)
-		crewAgent.CrewGoal = labels["crew_goal"].(string)
-		crewAgent.CrewBackstory = labels["crew_backstory"].(string)
-		crewAgent.CrewDescription = labels["crew_description"].(string)
-		crewAgent.CrewExpectedOutput = labels["crew_expected_output"].(string)
+		if url, ok := spec["url"].(string); ok {
+			crewAgent.ProviderURL = url
+		}
+		if role, ok := labels["crew_role"].(string); ok {
+			crewAgent.CrewRole = role
+		}
+		if goal, ok := labels["crew_goal"].(string); ok {
+			crewAgent.CrewGoal = goal
+		}
+		if backstory, ok := labels["crew_backstory"].(string); ok {
+			crewAgent.CrewBackstory = backstory
+		}
+		if description, ok := labels["crew_description"].(string); ok {
+			crewAgent.CrewDescription = description
+		}
+		if expectedOutput, ok := labels["crew_expected_output"].(string); ok {
+			crewAgent.CrewExpectedOutput = expectedOutput
+		}
 
 		// Validate required fields
 		if crewAgent.ProviderURL == "" ||
