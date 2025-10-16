@@ -202,6 +202,8 @@ func (b *BeeAIAgent) callBeeAIAPI(beeaiURL string, params map[string]interface{}
 }
 
 // getMCPTools gets tools from MCP
+// This function is reserved for future use when MCP tool integration is implemented
+// nolint:unused
 func (b *BeeAIAgent) getMCPTools(toolName string) ([]interface{}, error) {
 	// This is a simplified implementation
 	// In a real implementation, we would call the MCP API to get tools

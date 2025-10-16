@@ -448,6 +448,8 @@ func (m *Mermaid) toFlowchartCondition(agentL string, agentR string, step map[st
 }
 
 // toFlowchartEvent generates the event part of a flowchart
+// This function is reserved for future implementation
+// nolint:unused
 func (m *Mermaid) toFlowchartEvent(event map[string]interface{}) string {
 	// This is a placeholder as per the Python implementation
 	return ""

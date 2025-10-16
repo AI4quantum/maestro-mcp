@@ -734,6 +734,8 @@ func min(a, b int) int {
 }
 
 // Helper function to convert map[string]string to map[string]interface{}
+// This function is used in handleRunWorkflow
+// nolint:unused
 func convertMapToStringMap(m map[string]string) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range m {

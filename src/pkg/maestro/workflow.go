@@ -559,6 +559,8 @@ func (w *Workflow) createOrRestoreAgents() error {
 }
 
 // findIndex finds the index of a step by name
+// This function is reserved for future use when step indexing is needed
+// nolint:unused
 func (w *Workflow) findIndex(steps []map[string]interface{}, name string) (int, error) {
 	for i, step := range steps {
 		if stepName, ok := step["name"].(string); ok && stepName == name {

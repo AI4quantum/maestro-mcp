@@ -330,7 +330,10 @@ func (s *Step) applyInput(prompt string) (string, error) {
 	// Get user input
 	var response string
 	fmt.Print(userPrompt)
-	fmt.Scanln(&response)
+	if _, err := fmt.Scanln(&response); err != nil {
+		// If there's an error reading input, use an empty response
+		response = ""
+	}
 
 	// Apply template
 	result := strings.ReplaceAll(template, "{prompt}", prompt)

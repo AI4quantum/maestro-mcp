@@ -92,7 +92,9 @@ func TestRemoteAgentRun(t *testing.T) {
 		response := map[string]interface{}{
 			"answer": "Response to: " + prompt,
 		}
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -164,7 +166,9 @@ func TestRemoteAgentWithTemplates(t *testing.T) {
 				"text": "Response to: " + message,
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

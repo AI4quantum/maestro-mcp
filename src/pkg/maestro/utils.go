@@ -177,6 +177,8 @@ func AggregateTokenUsageFromAgents(agents map[string]Agent) map[string]interface
 }
 
 // Helper functions for common operations
+// These functions are reserved for future use in the codebase
+// nolint:unused
 func getStringFromMap(m map[string]interface{}, key string) (string, bool) {
 	if val, ok := m[key]; ok {
 		if str, ok := val.(string); ok {
@@ -186,6 +188,7 @@ func getStringFromMap(m map[string]interface{}, key string) (string, bool) {
 	return "", false
 }
 
+// nolint:unused
 func getMapFromMap(m map[string]interface{}, key string) (map[string]interface{}, bool) {
 	if val, ok := m[key]; ok {
 		if mapVal, ok := val.(map[string]interface{}); ok {
@@ -195,6 +198,7 @@ func getMapFromMap(m map[string]interface{}, key string) (map[string]interface{}
 	return nil, false
 }
 
+// nolint:unused
 func getSliceFromMap(m map[string]interface{}, key string) ([]interface{}, bool) {
 	if val, ok := m[key]; ok {
 		if slice, ok := val.([]interface{}); ok {
@@ -204,7 +208,8 @@ func getSliceFromMap(m map[string]interface{}, key string) ([]interface{}, bool)
 	return nil, false
 }
 
-// convertMapToStringMap converts a map[string]interface{} to map[string]string
+// ConvertMapToStringMap converts a map[string]interface{} to map[string]string
+// This function is used in workflow.go
 func convertMapToStringMap(m map[string]interface{}) map[string]string {
 	result := make(map[string]string)
 	for k, v := range m {

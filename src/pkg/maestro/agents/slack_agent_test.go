@@ -73,7 +73,9 @@ func TestSlackAgentRun(t *testing.T) {
 		// Return a successful response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"ok": true, "ts": "1234567890.123456"}`))
+		if _, err := w.Write([]byte(`{"ok": true, "ts": "1234567890.123456"}`)); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
