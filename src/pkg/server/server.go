@@ -3,11 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/AI4quantum/maestro-mcp/src/pkg/config"
-	"github.com/AI4quantum/maestro-mcp/src/pkg/mcp"
+	localmcp "github.com/AI4quantum/maestro-mcp/src/pkg/mcp"
+	"github.com/mark3labs/mcp-go/server"
 	"go.uber.org/zap"
 )
 
@@ -15,26 +15,26 @@ import (
 type Server struct {
 	config     *config.Config
 	logger     *zap.Logger
-	mcpServer  *mcp.Server
-	httpServer *http.Server
+	mcpServer  *localmcp.Server
+	httpServer *server.StreamableHTTPServer
+}
+
+func ServerFromContext(ctx context.Context) (*localmcp.Server, error) {
+	server, ok := ctx.Value(localmcp.Server{}).(*localmcp.Server)
+	if !ok {
+		return nil, fmt.Errorf("failed to get server from context")
+	}
+	return server, nil
 }
 
 // New creates a new server instance
 func New(cfg *config.Config, logger *zap.Logger) (*Server, error) {
 	// Create MCP server
-	mcpServer, err := mcp.NewServer(cfg, logger)
+	mcpServer, err := localmcp.NewServer(cfg, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP server: %w", err)
 	}
-
-	// Create HTTP server
-	httpServer := &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
-		Handler:      mcpServer.Handler(),
-		ReadTimeout:  cfg.Server.ReadTimeout,
-		WriteTimeout: cfg.Server.WriteTimeout,
-		IdleTimeout:  cfg.Server.IdleTimeout,
-	}
+	httpServer := server.NewStreamableHTTPServer(mcpServer.MCPServer)
 
 	return &Server{
 		config:     cfg,
@@ -46,13 +46,13 @@ func New(cfg *config.Config, logger *zap.Logger) (*Server, error) {
 
 // Start starts the server
 func (s *Server) Start(ctx context.Context) error {
-	s.logger.Info("Starting MCP server",
-		zap.String("address", s.httpServer.Addr))
+	//s.logger.Info("Starting MCP server",
+	//	zap.String("address", s.httpServer.Addr))
 
 	// Start HTTP server in a goroutine
 	serverErr := make(chan error, 1)
 	go func() {
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := s.httpServer.Start(":8030"); err != nil {
 			serverErr <- err
 		}
 	}()
@@ -88,3 +88,5 @@ func (s *Server) Stop() error {
 
 	return s.httpServer.Shutdown(ctx)
 }
+
+// Made with Bob
