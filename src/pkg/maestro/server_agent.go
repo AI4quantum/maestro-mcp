@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AI4quantum/maestro-mcp/src/pkg/maestro/agents"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/yaml.v3"
@@ -115,12 +116,18 @@ func (s *AgentServer) LoadAgents() error {
 		}
 
 		mode, _ := spec["mode"].(string)
-		agentClass, err := getAgentClass(framework, mode, agentDef)
+		agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
 		if err != nil {
 			return fmt.Errorf("failed to get agent class: %w", err)
 		}
 
-		s.Agents[agentName] = agentClass
+		// Create agent instance
+		agentInstance, err := agentClass(agentDef)
+		if err != nil {
+			return fmt.Errorf("failed to create agent: %w", err)
+		}
+
+		s.Agents[agentName] = agentInstance.(Agent)
 	}
 
 	if len(s.Agents) == 0 {

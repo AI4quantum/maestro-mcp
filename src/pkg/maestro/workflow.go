@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/AI4quantum/maestro-mcp/src/pkg/maestro/agents"
 	"go.uber.org/zap"
 )
 
@@ -374,29 +375,13 @@ func (w *Workflow) GetContextState() map[string]interface{} {
 // Helper methods (implementation details)
 
 // getAgentClass returns the appropriate agent class based on framework and mode
-func getAgentClass(framework string, mode string, agentDef map[string]interface{}) (Agent, error) {
+func getAgentClass(framework agents.AgentFramework, mode string) (agents.AgentCreator, error) {
+	agentFactory := agents.NewAgentFactory()
 	// Check for dry run environment variable
 	if os.Getenv("DRY_RUN") != "" {
-		return &MockAgent{
-			Name:  "MockAgent",
-			Model: "mock",
-		}, nil
+		framework = agents.Mock
 	}
-
-	// Get agent name from metadata if available
-	var name string = "DefaultAgent"
-	if metadata, ok := agentDef["metadata"].(map[string]interface{}); ok {
-		if agentName, ok := metadata["name"].(string); ok {
-			name = agentName
-		}
-	}
-
-	// For now, return a mock agent
-	// In a real implementation, we would use the agent factory to create real agents
-	return &MockAgent{
-		Name:  name,
-		Model: fmt.Sprintf("%s:%s", framework, mode),
-	}, nil
+	return agentFactory.CreateAgent(framework, mode)
 }
 
 // createOrRestoreAgents creates or restores agents for the workflow
@@ -404,34 +389,23 @@ func (w *Workflow) createOrRestoreAgents() error {
 	if len(w.AgentDefs) > 0 {
 		for _, agentDef := range w.AgentDefs {
 			// Check if agent definition contains a direct name field
-			if name, exists := agentDef["name"]; exists {
-				if agentName, ok := name.(string); ok {
-					// Try to restore the agent
-					restoredAgent, found, err := RestoreAgent(agentName)
-					if err != nil {
-						return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
-					}
+			if agentName, ok := agentDef.(string); ok {
+				// Try to restore the agent
+				restoredAgent, found, err := RestoreAgent(agentName)
+				if err != nil {
+					return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
+				}
 
-					if found {
-						// If agent was found, use it
-						if agent, ok := restoredAgent.(Agent); ok {
-							w.Agents[agentName] = agent
-						} else {
-							// If the restored agent is not of the right type, create a mock agent
-							w.Agents[agentName] = &MockAgent{
-								Name:  agentName,
-								Model: fmt.Sprintf("code:%s", agentName),
-							}
-						}
+				if found {
+					// If agent was found, use it
+					if agent, ok := restoredAgent.(Agent); ok {
+						w.Agents[agentName] = agent
+						continue
 					} else {
-						// If agent was not found, create a mock agent for now
-						// In a real implementation, we would use the agent factory
-						w.Agents[agentName] = &MockAgent{
-							Name:  agentName,
-							Model: fmt.Sprintf("code:%s", agentName),
-						}
+						agentDef = restoredAgent.(map[string]interface{})
 					}
-					continue
+				} else {
+					agentDef = restoredAgent.(map[string]interface{})
 				}
 			}
 
@@ -449,10 +423,12 @@ func (w *Workflow) createOrRestoreAgents() error {
 
 			// Get agent class
 			mode, _ := spec["mode"].(string)
-			agentClass, err := getAgentClass(framework, mode, agentDef)
+			agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
 			if err != nil {
 				return fmt.Errorf("failed to get agent class: %w", err)
 			}
+			agentInstance, _ := agentClass(agentDef)
+			agentInstance = agentInstance.(Agent)
 
 			// Set agent properties
 			metadata, ok := agentDef["metadata"].(map[string]interface{})
@@ -469,35 +445,9 @@ func (w *Workflow) createOrRestoreAgents() error {
 			if agentModel == "" {
 				agentModel = fmt.Sprintf("code:%s", agentName)
 			}
-
-			// Try to restore the agent first
-			restoredAgent, found, err := RestoreAgent(agentName)
-			if err != nil {
-				return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
-			}
-
-			if found {
-				// If agent was found, use it
-				if agent, ok := restoredAgent.(Agent); ok {
-					w.Agents[agentName] = agent
-				} else {
-					// If the restored agent is not of the right type, use the created agent
-					w.Agents[agentName] = agentClass
-
-					// Save the agent for future use
-					if err := SaveAgent(agentClass, agentDef); err != nil {
-						return fmt.Errorf("failed to save agent %s: %w", agentName, err)
-					}
-				}
-			} else {
-				// If agent was not found, use the created agent
-				w.Agents[agentName] = agentClass
-
-				// Save the agent for future use
-				if err := SaveAgent(agentClass, agentDef); err != nil {
-					return fmt.Errorf("failed to save agent %s: %w", agentName, err)
-				}
-			}
+			agentInstance.agentName = agentName
+			agentInstance.agentModel = agentModel
+			w.Agents[agentName] = agentInstance
 
 			// Store model if not a scoring agent
 			if !w.isScoringAgent(agentDef) {
@@ -511,12 +461,12 @@ func (w *Workflow) createOrRestoreAgents() error {
 			return fmt.Errorf("invalid workflow definition: missing template")
 		}
 
-		agents, ok := template["agents"].([]interface{})
+		agentList, ok := template["agents"].([]interface{})
 		if !ok {
 			return nil // No agents defined
 		}
 
-		for _, agent := range agents {
+		for _, agent := range agentList {
 			agentName, ok := agent.(string)
 			if !ok {
 				continue
@@ -533,19 +483,23 @@ func (w *Workflow) createOrRestoreAgents() error {
 				if agent, ok := restoredAgent.(Agent); ok {
 					w.Agents[agentName] = agent
 				} else {
-					// If the restored agent is not of the right type, create a mock agent
-					w.Agents[agentName] = &MockAgent{
-						Name:  agentName,
-						Model: fmt.Sprintf("code:%s", agentName),
-					}
+					return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
 				}
 			} else {
-				// If agent was not found, create a mock agent for now
-				// In a real implementation, we would use the agent factory
-				w.Agents[agentName] = &MockAgent{
-					Name:  agentName,
-					Model: fmt.Sprintf("code:%s", agentName),
+				agentDef := restoredAgent.(map[string]interface{})
+				spec, ok := agentDef["spec"].(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("invalid agent definition: missing spec")
 				}
+				framework, _ := spec["framework"].(string)
+				mode, _ := spec["mode"].(string)
+
+				agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
+				if err != nil {
+					return fmt.Errorf("failed to get agent class: %w", err)
+				}
+				agentInstance, err := agentClass(agentDef)
+				w.Agents[agentName] = agentInstance.(Agent)
 			}
 		}
 	}
@@ -572,20 +526,504 @@ func (w *Workflow) findIndex(steps []map[string]interface{}, name string) (int, 
 
 // runCondition runs the workflow steps based on conditions
 func (w *Workflow) runCondition(ctx context.Context, initialPrompt string) (map[string]interface{}, error) {
-	// Implementation omitted for brevity
-	// This would contain the core workflow execution logic
-	return map[string]interface{}{
-		"final_prompt": initialPrompt,
-	}, nil
+	// Get template and steps from workflow definition
+	template, ok := w.WorkflowDef["spec"].(map[string]interface{})["template"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid workflow definition: missing template")
+	}
+
+	steps, ok := template["steps"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid workflow definition: missing steps")
+	}
+
+	// Convert steps to a more usable format
+	typedSteps := make([]map[string]interface{}, 0, len(steps))
+	stepDefs := make(map[string]map[string]interface{})
+	for _, step := range steps {
+		if stepMap, ok := step.(map[string]interface{}); ok {
+			typedSteps = append(typedSteps, stepMap)
+			if stepName, ok := stepMap["name"].(string); ok {
+				stepDefs[stepName] = stepMap
+			}
+		}
+	}
+
+	// Process workflows if present
+	workflows, _ := template["workflows"].([]interface{})
+	workflowMap := make(map[string]string)
+	for _, wf := range workflows {
+		if wfMap, ok := wf.(map[string]interface{}); ok {
+			if name, ok := wfMap["name"].(string); ok {
+				if url, ok := wfMap["url"].(string); ok {
+					workflowMap[name] = url
+				}
+			}
+		}
+	}
+
+	// Set up steps with their agents
+	for _, step := range typedSteps {
+		stepName, _ := step["name"].(string)
+
+		// Set up agent for the step
+		if agentRef, exists := step["agent"]; exists {
+			if agentName, ok := agentRef.(string); ok {
+				agent, exists := w.Agents[agentName]
+				if !exists {
+					return nil, fmt.Errorf("agent not found: %s", agentName)
+				}
+				step["agent"] = agent
+			}
+		}
+
+		// Set up workflow reference
+		if workflowRef, exists := step["workflow"]; exists {
+			if workflowName, ok := workflowRef.(string); ok {
+				found := false
+				for _, workflow := range workflows {
+					if wfMap, ok := workflow.(map[string]interface{}); ok {
+						if wfName, ok := wfMap["name"].(string); ok && wfName == workflowName {
+							if url, ok := wfMap["url"].(string); ok {
+								step["workflow"] = url
+								found = true
+								break
+							}
+						}
+					}
+				}
+				if !found {
+					return nil, fmt.Errorf("workflow not found: %s", workflowName)
+				}
+			}
+		}
+
+		// Set up parallel agents
+		if parallelRef, exists := step["parallel"]; exists {
+			if parallelNames, ok := parallelRef.([]interface{}); ok {
+				parallelAgents := make([]Agent, 0, len(parallelNames))
+				for _, name := range parallelNames {
+					if agentName, ok := name.(string); ok {
+						agent, exists := w.Agents[agentName]
+						if !exists {
+							return nil, fmt.Errorf("parallel agent not found: %s", agentName)
+						}
+						parallelAgents = append(parallelAgents, agent)
+					}
+				}
+				step["parallel"] = parallelAgents
+			}
+		}
+
+		// Set up loop agent
+		if loopRef, exists := step["loop"]; exists {
+			if loopDef, ok := loopRef.(map[string]interface{}); ok {
+				if agentName, ok := loopDef["agent"].(string); ok {
+					agent, exists := w.Agents[agentName]
+					if !exists {
+						return nil, fmt.Errorf("loop agent not found: %s", agentName)
+					}
+					loopDef["agent"] = agent
+				}
+			}
+		}
+
+		// Create Step instance
+		stepObj, err := NewStep(step)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create step %s: %w", stepName, err)
+		}
+		w.Steps[stepName] = stepObj
+	}
+
+	// Execute steps
+	stepResults := make(map[string]interface{})
+	context := make(map[string]interface{})
+	current := typedSteps[0]["name"].(string)
+	prompt := initialPrompt
+	stepIndex := 0
+
+	// Main execution loop
+	for {
+		definition := stepDefs[current]
+		var stepPrompt interface{} = prompt
+
+		// Handle selective context routing with 'from' field
+		if fromSources, exists := definition["from"]; exists {
+			var sources []interface{}
+
+			if fromStr, ok := fromSources.(string); ok {
+				sources = []interface{}{fromStr}
+			} else if fromList, ok := fromSources.([]interface{}); ok {
+				sources = fromList
+			}
+
+			// Collect outputs from specified sources
+			contextInputs := make([]string, 0, len(sources))
+			for _, source := range sources {
+				if sourceStr, ok := source.(string); ok {
+					if sourceStr == "prompt" {
+						contextInputs = append(contextInputs, initialPrompt) // Use initial prompt as in Python
+					} else if result, exists := stepResults[sourceStr]; exists {
+						if resultStr, ok := result.(string); ok {
+							contextInputs = append(contextInputs, resultStr)
+						} else {
+							contextInputs = append(contextInputs, fmt.Sprintf("%v", result))
+						}
+					} else {
+						// Check if source is an agent name
+						agentStepName := ""
+						for sName, sDef := range stepDefs {
+							if agentRef, exists := sDef["agent"]; exists {
+								if agent, ok := agentRef.(Agent); ok && agent.GetName() == sourceStr {
+									agentStepName = sName
+									break
+								} else if agentName, ok := agentRef.(string); ok && agentName == sourceStr {
+									agentStepName = sName
+									break
+								}
+							}
+						}
+
+						if agentStepName != "" && stepResults[agentStepName] != nil {
+							if resultStr, ok := stepResults[agentStepName].(string); ok {
+								contextInputs = append(contextInputs, resultStr)
+							} else {
+								contextInputs = append(contextInputs, fmt.Sprintf("%v", stepResults[agentStepName]))
+							}
+						} else {
+							contextInputs = append(contextInputs, sourceStr)
+						}
+					}
+				}
+			}
+
+			// Join multiple inputs with newlines if multiple sources
+			if len(contextInputs) == 1 {
+				stepPrompt = contextInputs[0]
+			} else {
+				stepPrompt = strings.Join(contextInputs, "\n\n")
+			}
+
+			// Log context routing (similar to Python's print statements)
+			if w.Logger != nil {
+				w.Logger.Debug("Context routing",
+					zap.String("step", current),
+					zap.Any("sources", sources),
+					zap.String("prompt_preview", truncateString(fmt.Sprintf("%v", stepPrompt), 200)),
+				)
+			}
+		} else {
+			// Log default routing
+			if w.Logger != nil {
+				w.Logger.Debug("Default routing",
+					zap.String("step", current),
+					zap.String("prompt_preview", truncateString(fmt.Sprintf("%v", prompt), 200)),
+				)
+			}
+		}
+
+		// Run the step
+		step := w.Steps[current]
+		result, err := step.Run(ctx, stepPrompt, stepIndex)
+		if err != nil {
+			return nil, fmt.Errorf("error running step %s: %w", current, err)
+		}
+
+		// Process result
+		prompt = result.Prompt
+		stepResults[current] = prompt
+		context[current] = prompt
+		w.Context = context
+
+		// Update scoring metrics if available
+		if result.Metadata != nil {
+			if metrics, ok := result.Metadata["scoring_metrics"].(map[string]interface{}); ok {
+				w.ScoringMetrics = metrics
+			}
+		}
+
+		stepIndex++
+
+		// Determine next step
+		if result.Next != "" {
+			current = result.Next
+		} else {
+			// If this is the last step, break
+			lastStep := typedSteps[len(typedSteps)-1]["name"].(string)
+			if current == lastStep {
+				break
+			}
+
+			// Otherwise, move to the next step in sequence
+			idx, err := w.findIndex(typedSteps, current)
+			if err != nil {
+				return nil, fmt.Errorf("error finding next step: %w", err)
+			}
+			current = typedSteps[idx+1]["name"].(string)
+		}
+	}
+
+	// Create workflow trace
+	w.createWorkflowTrace(initialPrompt, prompt, convertMapToStringMap(stepResults))
+
+	// Return results
+	finalResult := make(map[string]interface{})
+	finalResult["final_prompt"] = prompt
+	for k, v := range stepResults {
+		finalResult[k] = v
+	}
+
+	return finalResult, nil
+}
+
+// truncateString truncates a string to the specified length and adds ellipsis if needed
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // runConditionStreaming runs the workflow steps with streaming results
 func (w *Workflow) runConditionStreaming(ctx context.Context, resultChan chan<- *StreamResult) (map[string]interface{}, error) {
-	// Implementation omitted for brevity
-	// This would contain the streaming workflow execution logic
-	return map[string]interface{}{
-		"final_prompt": "Streaming result",
-	}, nil
+	// Get template and steps from workflow definition
+	template, ok := w.WorkflowDef["spec"].(map[string]interface{})["template"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid workflow definition: missing template")
+	}
+
+	initialPrompt, ok := template["prompt"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid workflow definition: missing prompt")
+	}
+
+	steps, ok := template["steps"].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid workflow definition: missing steps")
+	}
+
+	// Convert steps to a more usable format
+	typedSteps := make([]map[string]interface{}, 0, len(steps))
+	stepDefs := make(map[string]map[string]interface{})
+	for _, step := range steps {
+		if stepMap, ok := step.(map[string]interface{}); ok {
+			typedSteps = append(typedSteps, stepMap)
+			if stepName, ok := stepMap["name"].(string); ok {
+				stepDefs[stepName] = stepMap
+			}
+		}
+	}
+
+	// Process workflows if present
+	workflows, _ := template["workflows"].([]interface{})
+	workflowMap := make(map[string]string)
+	for _, wf := range workflows {
+		if wfMap, ok := wf.(map[string]interface{}); ok {
+			if name, ok := wfMap["name"].(string); ok {
+				if url, ok := wfMap["url"].(string); ok {
+					workflowMap[name] = url
+				}
+			}
+		}
+	}
+
+	// Set up steps with their agents
+	for _, step := range typedSteps {
+		stepName, _ := step["name"].(string)
+
+		// Set up agent for the step
+		if agentRef, exists := step["agent"]; exists {
+			if agentName, ok := agentRef.(string); ok {
+				agent, exists := w.Agents[agentName]
+				if !exists {
+					return nil, fmt.Errorf("agent not found: %s", agentName)
+				}
+				step["agent"] = agent
+			}
+		}
+
+		// Set up workflow reference
+		if workflowRef, exists := step["workflow"]; exists {
+			if workflowName, ok := workflowRef.(string); ok {
+				found := false
+				for _, workflow := range workflows {
+					if wfMap, ok := workflow.(map[string]interface{}); ok {
+						if wfName, ok := wfMap["name"].(string); ok && wfName == workflowName {
+							if url, ok := wfMap["url"].(string); ok {
+								step["workflow"] = url
+								found = true
+								break
+							}
+						}
+					}
+				}
+				if !found {
+					return nil, fmt.Errorf("workflow not found: %s", workflowName)
+				}
+			}
+		}
+
+		// Set up parallel agents
+		if parallelRef, exists := step["parallel"]; exists {
+			if parallelNames, ok := parallelRef.([]interface{}); ok {
+				parallelAgents := make([]Agent, 0, len(parallelNames))
+				for _, name := range parallelNames {
+					if agentName, ok := name.(string); ok {
+						agent, exists := w.Agents[agentName]
+						if !exists {
+							return nil, fmt.Errorf("parallel agent not found: %s", agentName)
+						}
+						parallelAgents = append(parallelAgents, agent)
+					}
+				}
+				step["parallel"] = parallelAgents
+			}
+		}
+
+		// Set up loop agent
+		if loopRef, exists := step["loop"]; exists {
+			if loopDef, ok := loopRef.(map[string]interface{}); ok {
+				if agentName, ok := loopDef["agent"].(string); ok {
+					agent, exists := w.Agents[agentName]
+					if !exists {
+						return nil, fmt.Errorf("loop agent not found: %s", agentName)
+					}
+					loopDef["agent"] = agent
+				}
+			}
+		}
+
+		// Create Step instance
+		stepObj, err := NewStep(step)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create step %s: %w", stepName, err)
+		}
+		w.Steps[stepName] = stepObj
+	}
+
+	// Execute steps
+	stepResults := make(map[string]interface{})
+	current := typedSteps[0]["name"].(string)
+	prompt := initialPrompt
+	stepIndex := 0
+
+	// Main execution loop
+	for {
+		definition := stepDefs[current]
+		var stepPrompt interface{} = prompt
+
+		// Handle selective context routing with 'from' field
+		if fromSources, exists := definition["from"]; exists {
+			var sources []interface{}
+
+			if fromStr, ok := fromSources.(string); ok {
+				sources = []interface{}{fromStr}
+			} else if fromList, ok := fromSources.([]interface{}); ok {
+				sources = fromList
+			}
+
+			// Collect outputs from specified sources
+			contextInputs := make([]string, 0, len(sources))
+			for _, source := range sources {
+				if sourceStr, ok := source.(string); ok {
+					if sourceStr == "prompt" {
+						contextInputs = append(contextInputs, prompt)
+					} else if result, exists := stepResults[sourceStr]; exists {
+						if resultStr, ok := result.(string); ok {
+							contextInputs = append(contextInputs, resultStr)
+						} else {
+							contextInputs = append(contextInputs, fmt.Sprintf("%v", result))
+						}
+					} else {
+						contextInputs = append(contextInputs, sourceStr)
+					}
+				}
+			}
+
+			// Join multiple inputs with newlines if multiple sources
+			if len(contextInputs) == 1 {
+				stepPrompt = contextInputs[0]
+			} else {
+				stepPrompt = strings.Join(contextInputs, "\n\n")
+			}
+		}
+
+		// Run the step
+		step := w.Steps[current]
+		result, err := step.Run(ctx, stepPrompt, stepIndex)
+		if err != nil {
+			return nil, fmt.Errorf("error running step %s: %w", current, err)
+		}
+
+		// Process result
+		prompt = result.Prompt
+		stepResults[current] = prompt
+		stepIndex++
+
+		// Get agent name if available
+		agentName := ""
+		if agentObj, ok := definition["agent"].(Agent); ok {
+			agentName = agentObj.GetName()
+		}
+
+		// Get token usage if available
+		tokenData := make(map[string]interface{})
+		if result.Metadata != nil {
+			if pt, ok := result.Metadata["prompt_tokens"].(int); ok {
+				tokenData["prompt_tokens"] = pt
+			}
+			if rt, ok := result.Metadata["response_tokens"].(int); ok {
+				tokenData["response_tokens"] = rt
+			}
+			if tt, ok := result.Metadata["total_tokens"].(int); ok {
+				tokenData["total_tokens"] = tt
+			}
+		}
+
+		// Send streaming result
+		streamResult := &StreamResult{
+			StepName:   current,
+			StepResult: prompt,
+			StepIndex:  stepIndex - 1,
+			AgentName:  agentName,
+			IsFinal:    false,
+		}
+
+		resultChan <- streamResult
+
+		// Determine next step
+		if result.Next != "" {
+			current = result.Next
+		} else {
+			// If this is the last step, break
+			lastStep := typedSteps[len(typedSteps)-1]["name"].(string)
+			if current == lastStep {
+				// Send final result
+				resultChan <- &StreamResult{
+					IsFinal:    true,
+					StepResult: prompt,
+				}
+				break
+			}
+
+			// Otherwise, move to the next step in sequence
+			idx, err := w.findIndex(typedSteps, current)
+			if err != nil {
+				return nil, fmt.Errorf("error finding next step: %w", err)
+			}
+			current = typedSteps[idx+1]["name"].(string)
+		}
+	}
+
+	// Return results
+	finalResult := make(map[string]interface{})
+	finalResult["final_prompt"] = prompt
+	for k, v := range stepResults {
+		finalResult[k] = v
+	}
+
+	return finalResult, nil
 }
 
 // processEvent processes an event-based workflow
@@ -703,13 +1141,14 @@ func CreateAgents(agentDefs []map[string]interface{}) error {
 
 		// Get agent class based on framework and mode
 		mode, _ := spec["mode"].(string)
-		agentClass, err := getAgentClass(framework, mode, agentDef)
+		agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
 		if err != nil {
 			return fmt.Errorf("failed to get agent class: %w", err)
 		}
+		agentInstance, _ := agentClass(agentDef)
 
 		// Save agent
-		if err := SaveAgent(agentClass, agentDef); err != nil {
+		if err := SaveAgent(agentInstance, agentDef); err != nil {
 			return fmt.Errorf("failed to save agent: %w", err)
 		}
 	}
