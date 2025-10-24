@@ -147,6 +147,7 @@ type Workflow struct {
 	Agents            map[string]Agent
 	Steps             map[string]*Step
 	AgentDefs         []map[string]interface{}
+	AgentList         []string
 	WorkflowDef       map[string]interface{}
 	WorkflowID        string
 	Logger            *zap.Logger
@@ -174,6 +175,7 @@ func NewWorkflow(
 		Agents:         make(map[string]Agent),
 		Steps:          make(map[string]*Step),
 		AgentDefs:      agentDefs,
+		AgentList:      make([]string, 0),
 		WorkflowDef:    workflowDef,
 		WorkflowID:     workflowID,
 		Logger:         logger,
@@ -386,72 +388,40 @@ func getAgentClass(framework agents.AgentFramework, mode string) (agents.AgentCr
 
 // createOrRestoreAgents creates or restores agents for the workflow
 func (w *Workflow) createOrRestoreAgents() error {
-	if len(w.AgentDefs) > 0 {
+	if len(w.AgentDefs) > 0 || len(w.AgentList) > 0 {
+		// Process AgentDefs
 		for _, agentDef := range w.AgentDefs {
-			// Check if agent definition contains a direct name field
-			if agentName, ok := agentDef.(string); ok {
-				// Try to restore the agent
-				restoredAgent, found, err := RestoreAgent(agentName)
-				if err != nil {
-					return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
-				}
-
-				if found {
-					// If agent was found, use it
-					if agent, ok := restoredAgent.(Agent); ok {
-						w.Agents[agentName] = agent
-						continue
-					} else {
-						agentDef = restoredAgent.(map[string]interface{})
-					}
-				} else {
-					agentDef = restoredAgent.(map[string]interface{})
-				}
+			// Process agent definition
+			if err := w.processAgentDefinition(agentDef); err != nil {
+				return err
 			}
+		}
 
-			// Get or set framework
-			spec, ok := agentDef["spec"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("invalid agent definition: missing spec")
-			}
-
-			framework, _ := spec["framework"].(string)
-			if framework == "" {
-				framework = "beeai" // Default framework
-				spec["framework"] = framework
-			}
-
-			// Get agent class
-			mode, _ := spec["mode"].(string)
-			agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
+		// Process AgentList
+		for _, agentName := range w.AgentList {
+			// Try to restore the agent
+			restoredAgent, found, err := RestoreAgent(agentName)
 			if err != nil {
-				return fmt.Errorf("failed to get agent class: %w", err)
-			}
-			agentInstance, _ := agentClass(agentDef)
-			agentInstance = agentInstance.(Agent)
-
-			// Set agent properties
-			metadata, ok := agentDef["metadata"].(map[string]interface{})
-			if !ok {
-				return fmt.Errorf("invalid agent definition: missing metadata")
+				return fmt.Errorf("failed to restore agent %s: %w", agentName, err)
 			}
 
-			agentName, ok := metadata["name"].(string)
-			if !ok {
-				return fmt.Errorf("invalid agent definition: missing name")
-			}
+			if found {
+				// If agent was found, use it
+				if agent, ok := restoredAgent.(Agent); ok {
+					w.Agents[agentName] = agent
+				} else {
+					return fmt.Errorf("failed to restore agent %s: invalid agent type", agentName)
+				}
+			} else {
+				// If agent was not found, try to create it from the definition
+				agentDef, ok := restoredAgent.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("agent not found: %s", agentName)
+				}
 
-			agentModel, _ := spec["model"].(string)
-			if agentModel == "" {
-				agentModel = fmt.Sprintf("code:%s", agentName)
-			}
-			agentInstance.agentName = agentName
-			agentInstance.agentModel = agentModel
-			w.Agents[agentName] = agentInstance
-
-			// Store model if not a scoring agent
-			if !w.isScoringAgent(agentDef) {
-				w.WorkflowModels[agentName] = agentModel
+				if err := w.processAgentDefinition(agentDef); err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -1151,6 +1121,67 @@ func CreateAgents(agentDefs []map[string]interface{}) error {
 		if err := SaveAgent(agentInstance, agentDef); err != nil {
 			return fmt.Errorf("failed to save agent: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// processAgentDefinition processes an agent definition and adds it to the workflow
+func (w *Workflow) processAgentDefinition(agentDef map[string]interface{}) error {
+	// Get or set framework
+	spec, ok := agentDef["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid agent definition: missing spec")
+	}
+
+	framework, _ := spec["framework"].(string)
+	if framework == "" {
+		framework = "beeai" // Default framework
+		spec["framework"] = framework
+	}
+
+	// Get agent class
+	mode, _ := spec["mode"].(string)
+	agentClass, err := getAgentClass(agents.AgentFramework(framework), mode)
+	if err != nil {
+		return fmt.Errorf("failed to get agent class: %w", err)
+	}
+
+	// Create agent instance
+	agentInstance, err := agentClass(agentDef)
+	if err != nil {
+		return fmt.Errorf("failed to create agent: %w", err)
+	}
+
+	// Convert to Agent interface
+	agent, ok := agentInstance.(Agent)
+	if !ok {
+		return fmt.Errorf("invalid agent instance: does not implement Agent interface")
+	}
+
+	// Set agent properties
+	metadata, ok := agentDef["metadata"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid agent definition: missing metadata")
+	}
+
+	agentName, ok := metadata["name"].(string)
+	if !ok {
+		return fmt.Errorf("invalid agent definition: missing name")
+	}
+
+	// Store agent in workflow
+	w.Agents[agentName] = agent
+
+	// Get agent model
+	agentModel, _ := spec["model"].(string)
+	if agentModel == "" {
+		agentModel = fmt.Sprintf("code:%s", agentName)
+	}
+
+	// Store model if not a scoring agent
+	if !w.isScoringAgent(agentDef) {
+		w.WorkflowModels[agentName] = agentModel
 	}
 
 	return nil
