@@ -470,6 +470,9 @@ func (w *Workflow) createOrRestoreAgents() error {
 					return fmt.Errorf("failed to get agent class: %w", err)
 				}
 				agentInstance, err := agentClass(agentDef)
+				if err != nil {
+					return fmt.Errorf("failed to create agent: %w", err)
+				}
 				w.Agents[agentName] = agentInstance.(Agent)
 			}
 		}
