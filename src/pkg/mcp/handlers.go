@@ -443,19 +443,28 @@ func handleRunWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return nil, fmt.Errorf("invalid workflow definition: %w", err)
 	}
 
-	// Parse agent definitions
-	agentDefs := make([]map[string]interface{}, 0, len(agentsRaw))
-	for i, agentRaw := range agentsRaw {
-		agentStr, ok := agentRaw.(string)
-		if !ok {
-			return nil, fmt.Errorf("agent at index %d is not a string", i)
-		}
+	// Parse agent definitions and agent names
+	agentDefs := make([]map[string]interface{}, 0)
+	agentList := make([]string, 0)
 
-		var agentDef map[string]interface{}
-		if err := json.Unmarshal([]byte(agentStr), &agentDef); err != nil {
-			return nil, fmt.Errorf("invalid agent definition at index %d: %w", i, err)
+	for i, agentRaw := range agentsRaw {
+		switch agent := agentRaw.(type) {
+		case string:
+			// Try to unmarshal as JSON to see if it's an agent definition
+			var agentDef map[string]interface{}
+			if err := json.Unmarshal([]byte(agent), &agentDef); err == nil {
+				// It's a valid JSON object, so it's an agent definition
+				agentDefs = append(agentDefs, agentDef)
+			} else {
+				// It's not a valid JSON object, so it's an agent name
+				agentList = append(agentList, agent)
+			}
+		case map[string]interface{}:
+			// It's already a map, so it's an agent definition
+			agentDefs = append(agentDefs, agent)
+		default:
+			return nil, fmt.Errorf("agent at index %d is not a string or map", i)
 		}
-		agentDefs = append(agentDefs, agentDef)
 	}
 
 	// Generate workflow ID
@@ -468,6 +477,7 @@ func handleRunWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	// Create workflow instance
 	workflowObj, err := maestro.NewWorkflow(
 		agentDefs,
+		agentList,
 		workflowDef,
 		workflowID,
 		GlobalServerState.Logger,

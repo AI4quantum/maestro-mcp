@@ -99,7 +99,7 @@ func (s *WorkflowServer) LoadWorkflow() error {
 	}
 
 	// Create workflow
-	workflow, err := NewWorkflow(agentsYAML, workflowYAML[0], "", nil)
+	workflow, err := NewWorkflow(agentsYAML, []string{}, workflowYAML[0], "", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow: %w", err)
 	}

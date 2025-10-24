@@ -167,6 +167,7 @@ type Workflow struct {
 // NewWorkflow creates a new Workflow instance
 func NewWorkflow(
 	agentDefs []map[string]interface{},
+	agentList []string,
 	workflowDef map[string]interface{},
 	workflowID string,
 	logger *zap.Logger,
@@ -175,7 +176,7 @@ func NewWorkflow(
 		Agents:         make(map[string]Agent),
 		Steps:          make(map[string]*Step),
 		AgentDefs:      agentDefs,
-		AgentList:      make([]string, 0),
+		AgentList:      agentList,
 		WorkflowDef:    workflowDef,
 		WorkflowID:     workflowID,
 		Logger:         logger,
