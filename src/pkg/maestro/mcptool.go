@@ -4,10 +4,18 @@
 package maestro
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Constants for Kubernetes custom resources
@@ -72,16 +80,102 @@ func CreateMCPTools(toolDefs []map[string]interface{}) error {
 
 // checkKubernetesAvailable checks if Kubernetes is available
 func checkKubernetesAvailable() bool {
-	// In a real implementation, this would check Kubernetes connectivity
-	// For now, just return false as we don't have Kubernetes integration yet
-	return false
+	// Load Kubernetes configuration from default location
+	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	if err != nil {
+		// Failed to load config
+		return false
+	}
+
+	// Create clientset to verify connectivity
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		// Failed to create clientset
+		return false
+	}
+
+	// Try to get server version to verify connectivity
+	_, err = clientset.Discovery().ServerVersion()
+	if err != nil {
+		// Failed to connect to server
+		return false
+	}
+
+	// Successfully connected to Kubernetes
+	return true
 }
 
 // createMCPTool creates an MCP tool in Kubernetes
 func createMCPTool(toolDef map[string]interface{}) error {
-	// In a real implementation, this would use the Kubernetes client-go library
-	// to create the custom resource
-	// For now, just return nil as we don't have Kubernetes integration yet
+	// Load Kubernetes configuration from default location
+	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	if err != nil {
+		return fmt.Errorf("failed to load Kubernetes config: %w", err)
+	}
+
+	// Create API client for custom resources
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	// Determine which CRD to use based on URL presence
+	spec, ok := toolDef["spec"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid tool definition: missing spec")
+	}
+
+	var apiVersion, kind, group, version, plural string
+	_, hasURL := spec["url"]
+
+	if hasURL {
+		// Use RemoteMCPServer CRD
+		apiVersion = fmt.Sprintf("%s/%s", RemoteGroup, RemoteVersion)
+		kind = RemoteKind
+		group = RemoteGroup
+		version = RemoteVersion
+		plural = RemotePlural
+	} else {
+		// Use ToolHive CRD
+		apiVersion = fmt.Sprintf("%s/%s", ToolHiveGroup, ToolHiveVersion)
+		kind = ToolHiveKind
+		group = ToolHiveGroup
+		version = ToolHiveVersion
+		plural = ToolHivePlural
+	}
+
+	// Set apiVersion and kind in the tool definition
+	toolDef["apiVersion"] = apiVersion
+	toolDef["kind"] = kind
+
+	// Get namespace from metadata or use default
+	metadata, ok := toolDef["metadata"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid tool definition: missing metadata")
+	}
+
+	namespace, ok := metadata["namespace"].(string)
+	if !ok || namespace == "" {
+		namespace = "default"
+	}
+
+	// Create the custom resource
+	gvr := schema.GroupVersionResource{
+		Group:    group,
+		Version:  version,
+		Resource: plural,
+	}
+
+	_, err = dynamicClient.Resource(gvr).Namespace(namespace).Create(
+		context.Background(),
+		&unstructured.Unstructured{Object: toolDef},
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create custom resource: %w", err)
+	}
+
+	fmt.Printf("MCP tool: %s successfully created\n", metadata["name"])
 	return nil
 }
 
