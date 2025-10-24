@@ -118,17 +118,16 @@ func RestoreAgent(agentName string) (interface{}, bool, error) {
 			return agentDef, false, nil
 		}
 
-		// Create a new agent from the definition
-		// In a real implementation, this would use the agent factory
-		// For now, just return the agent definition
-		return agentDef, false, nil
-	}
+	} else {
+		// Try to deserialize the agent
+		var agentInstance interface{}
+		if err := json.Unmarshal(agentData, &agentInstance); err != nil {
+			return nil, false, fmt.Errorf("failed to unmarshal agent data: %w", err)
+		}
 
-	// Default to creating a mock agent with the name "DefaultAgent" for compatibility with tests
-	return &MockAgent{
-		Name:  "DefaultAgent",
-		Model: fmt.Sprintf("code:%s", agentName),
-	}, true, nil
+		return agentInstance, true, nil
+	}
+	return nil, false, fmt.Errorf("failed to unmarshal agent data: %w", err)
 }
 
 // RemoveAgent removes an agent from the database
