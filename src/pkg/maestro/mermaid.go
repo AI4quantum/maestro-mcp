@@ -6,6 +6,8 @@ package maestro
 import (
 	"fmt"
 	"strings"
+
+	"github.com/AI4quantum/maestro-mcp/src/pkg/maestro/agents"
 )
 
 // Mermaid represents a mermaid diagram generator
@@ -42,8 +44,33 @@ func (m *Mermaid) ToMarkdown() (string, error) {
 }
 
 // fixAgentName replaces hyphens with underscores in agent names
-func (m *Mermaid) fixAgentName(name string) string {
-	return strings.ReplaceAll(name, "-", "_")
+// and handles different types of agent representations
+func (m *Mermaid) fixAgentName(agent interface{}) string {
+	// Check if agent is a BaseAgent struct from agents package
+	if baseAgent, ok := agent.(*agents.Agent); ok {
+		// Get AgentName from BaseAgent
+		return strings.ReplaceAll(baseAgent.AgentName, "-", "_")
+	}
+
+	// Check if agent is a map (Agent object)
+	if agentMap, ok := agent.(map[string]interface{}); ok {
+		// Extract name from metadata.name
+		if metadata, ok := agentMap["metadata"].(map[string]interface{}); ok {
+			if name, ok := metadata["name"].(string); ok {
+				return strings.ReplaceAll(name, "-", "_")
+			}
+		}
+		// If we couldn't extract the name, try to use the whole agent as a string
+		return strings.ReplaceAll(fmt.Sprintf("%v", agent), "-", "_")
+	}
+
+	// If agent is a string, just replace hyphens with underscores
+	if name, ok := agent.(string); ok {
+		return strings.ReplaceAll(name, "-", "_")
+	}
+
+	// If agent is neither a map nor a string, convert to string and replace hyphens
+	return strings.ReplaceAll(fmt.Sprintf("%v", agent), "-", "_")
 }
 
 // agentForStep returns the agent for a given step name
@@ -145,7 +172,7 @@ func (m *Mermaid) toSequenceDiagram() string {
 
 		// Update agentL only when this step names a real agent
 		if agent, ok := step["agent"]; ok {
-			agentL = m.fixAgentName(agent.(string))
+			agentL = m.fixAgentName(agent)
 		}
 
 		// Find next real agent for the arrow
@@ -161,7 +188,7 @@ func (m *Mermaid) toSequenceDiagram() string {
 			}
 
 			if agent, ok := nextStep["agent"]; ok {
-				agentR = m.fixAgentName(agent.(string))
+				agentR = m.fixAgentName(agent)
 				break
 			}
 		}
@@ -239,7 +266,7 @@ func (m *Mermaid) toSequenceDiagramParallel(agentL string, parallelStep map[stri
 
 	parallel := parallelStep["parallel"].([]interface{})
 	for i, agent := range parallel {
-		agentR := m.fixAgentName(agent.(string))
+		agentR := m.fixAgentName(agent)
 		sb.WriteString(fmt.Sprintf("  %s->>%s: %s\n", agentL, agentR, parallelStep["name"]))
 
 		if i < len(parallel)-1 {
@@ -262,7 +289,7 @@ func (m *Mermaid) toSequenceDiagramLoop(agentL string, loopDef map[string]interf
 
 	sb.WriteString(fmt.Sprintf("loop %s\n", expr))
 
-	agent, _ := loopDef["agent"].(string)
+	agent, _ := loopDef["agent"]
 	loopType := "until"
 	if _, ok := loopDef["until"]; !ok {
 		loopType = "loop"
@@ -324,10 +351,10 @@ func (m *Mermaid) toSequenceDiagramException(steps []interface{}, exception map[
 	for _, s := range steps {
 		step := s.(map[string]interface{})
 		if agent, ok := step["agent"]; ok {
-			agentL := m.fixAgentName(agent.(string))
-			exceptionAgent := exception["agent"].(string)
+			agentL := m.fixAgentName(agent)
+			exceptionAgent := exception["agent"]
 			exceptionName := exception["name"].(string)
-			sb.WriteString(fmt.Sprintf("  %s->>%s: %s\n", agentL, exceptionAgent, exceptionName))
+			sb.WriteString(fmt.Sprintf("  %s->>%s: %s\n", agentL, m.fixAgentName(exceptionAgent), exceptionName))
 		}
 	}
 
@@ -462,10 +489,10 @@ func (m *Mermaid) toFlowchartException(steps []interface{}, exception map[string
 	for _, s := range steps {
 		step := s.(map[string]interface{})
 		if agent, ok := step["agent"]; ok {
-			agentL := m.fixAgentName(agent.(string))
+			agentL := m.fixAgentName(agent)
 			exceptionName := exception["name"].(string)
-			exceptionAgent := exception["agent"].(string)
-			sb.WriteString(fmt.Sprintf("%s -->|exception| %s{%s}\n", agentL, exceptionName, exceptionAgent))
+			exceptionAgent := exception["agent"]
+			sb.WriteString(fmt.Sprintf("%s -->|exception| %s{%s}\n", agentL, exceptionName, m.fixAgentName(exceptionAgent)))
 		}
 	}
 

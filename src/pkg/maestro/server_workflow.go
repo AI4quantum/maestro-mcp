@@ -4,12 +4,14 @@
 package maestro
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -68,38 +70,57 @@ func NewWorkflowServer(agentsFile string, workflowFile string) (*WorkflowServer,
 	return server, nil
 }
 
+// YAMLDocument represents a parsed YAML document
+type YAMLDocument map[string]interface{}
+
+// ParseYAML parses a YAML file and returns a slice of YAML documents
+func ParseYAML(filePath string) ([]map[string]interface{}, error) {
+	// Read the file
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not read YAML file: %w", err)
+	}
+
+	// Parse the YAML documents
+	var docs []map[string]interface{}
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+
+	// Read all documents from the YAML file
+	for {
+		var doc map[string]interface{}
+		err := decoder.Decode(&doc)
+		if err != nil {
+			break
+		}
+
+		// Add source file information
+		absPath, _ := filepath.Abs(filePath)
+		doc["source_file"] = absPath
+
+		docs = append(docs, doc)
+	}
+
+	if len(docs) == 0 {
+		return nil, fmt.Errorf("no valid YAML documents found in file")
+	}
+
+	return docs, nil
+}
+
 // LoadWorkflow loads the workflow from the workflow file
 func (s *WorkflowServer) LoadWorkflow() error {
-	// Read agents file
-	agentsData, err := os.ReadFile(s.AgentsFile)
+	agentsYAML, err := ParseYAML(s.AgentsFile)
 	if err != nil {
 		return fmt.Errorf("failed to read agents file: %w", err)
 	}
 
-	// Parse agents YAML
-	var agentsYAML []map[string]interface{}
-	if err := yaml.Unmarshal(agentsData, &agentsYAML); err != nil {
-		return fmt.Errorf("failed to parse agents YAML: %w", err)
-	}
-
-	// Read workflow file
-	workflowData, err := os.ReadFile(s.WorkflowFile)
+	workflowsYAML, err := ParseYAML(s.WorkflowFile)
 	if err != nil {
 		return fmt.Errorf("failed to read workflow file: %w", err)
 	}
 
-	// Parse workflow YAML
-	var workflowYAML []map[string]interface{}
-	if err := yaml.Unmarshal(workflowData, &workflowYAML); err != nil {
-		return fmt.Errorf("failed to parse workflow YAML: %w", err)
-	}
-
-	if len(workflowYAML) == 0 {
-		return fmt.Errorf("no workflow found in %s", s.WorkflowFile)
-	}
-
 	// Create workflow
-	workflow, err := NewWorkflow(agentsYAML, []string{}, workflowYAML[0], "", nil)
+	workflow, err := NewWorkflow(agentsYAML, []string{}, workflowsYAML[0], "", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow: %w", err)
 	}
@@ -107,7 +128,7 @@ func (s *WorkflowServer) LoadWorkflow() error {
 	s.Workflow = workflow
 
 	// Get workflow name
-	metadata, ok := workflowYAML[0]["metadata"].(map[string]interface{})
+	metadata, ok := workflowsYAML[0]["metadata"].(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("invalid workflow definition: missing metadata")
 	}
