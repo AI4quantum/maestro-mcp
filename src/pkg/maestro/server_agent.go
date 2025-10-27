@@ -15,7 +15,6 @@ import (
 	"github.com/AI4quantum/maestro-mcp/src/pkg/maestro/agents"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"gopkg.in/yaml.v3"
 )
 
 // AgentServer represents a server for serving Maestro agents
@@ -70,16 +69,9 @@ func NewAgentServer(agentsFile string, agentName string) (*AgentServer, error) {
 
 // LoadAgents loads agents from the agents file
 func (s *AgentServer) LoadAgents() error {
-	// Read agents file
-	data, err := os.ReadFile(s.AgentsFile)
+	agentsYAML, err := ParseYAML(s.AgentsFile)
 	if err != nil {
 		return fmt.Errorf("failed to read agents file: %w", err)
-	}
-
-	// Parse YAML
-	var agentsYAML []map[string]interface{}
-	if err := yaml.Unmarshal(data, &agentsYAML); err != nil {
-		return fmt.Errorf("failed to parse agents YAML: %w", err)
 	}
 
 	// Create agents

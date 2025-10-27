@@ -611,11 +611,10 @@ func handleServeAgent(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 	// Extract arguments from request
 	args := request.Params.Arguments.(map[string]interface{})
 
-	agent, ok := args["agent"].(string)
+	agents, ok := args["agent"].(string)
 	if !ok {
 		return nil, fmt.Errorf("agent is required and must be a string")
 	}
-	fmt.Println(agent)
 
 	agentName := ""
 	if an, ok := args["agent_name"].(string); ok {
@@ -632,20 +631,17 @@ func handleServeAgent(ctx context.Context, request mcp.CallToolRequest) (*mcp.Ca
 		port = int(p)
 	}
 
-	// Parse agent definition if needed
-	var agentDef map[string]interface{}
-	if err := json.Unmarshal([]byte(agent), &agentDef); err != nil {
-		return nil, fmt.Errorf("invalid agent definition: %w", err)
-	}
-
 	// Create a temporary file to store the agent definition
-	tempAgentFile := fmt.Sprintf("agent_%s.yaml", time.Now().Format("20060102_150405"))
+	tempAgentsFile := fmt.Sprintf("agent_%s.yaml", time.Now().Format("20060102_150405"))
 
-	// TODO: Convert agent definition to YAML and write to file
+	// Write agents to file
+	if err := os.WriteFile(tempAgentsFile, []byte(agents), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write agents to file: %w", err)
+	}
 
 	// Serve the agent
 	go func() {
-		if err := maestro.ServeAgent(tempAgentFile, agentName, host, port); err != nil {
+		if err := maestro.ServeAgent(tempAgentsFile, agentName, host, port); err != nil {
 			GlobalServerState.Logger.Error("Failed to serve agent",
 				zap.String("agent_name", agentName),
 				zap.String("host", host),
