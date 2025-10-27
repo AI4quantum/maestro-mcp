@@ -289,7 +289,7 @@ func (m *Mermaid) toSequenceDiagramLoop(agentL string, loopDef map[string]interf
 
 	sb.WriteString(fmt.Sprintf("loop %s\n", expr))
 
-	agent, _ := loopDef["agent"]
+	agent := loopDef["agent"]
 	loopType := "until"
 	if _, ok := loopDef["until"]; !ok {
 		loopType = "loop"
