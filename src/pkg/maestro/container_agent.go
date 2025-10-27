@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -23,55 +23,9 @@ import (
 var mockDeploymentServiceFunc = CreateDeploymentService
 
 // CreateContaineredAgent creates a containerized agent from an agent definition file
-func CreateContaineredAgent(agentsFile string, agentName string, host string, port int, logger *zap.Logger) error {
-	// Parse the agents YAML file
-	agentsData, err := os.ReadFile(agentsFile)
-	if err != nil {
-		return fmt.Errorf("failed to read agents file: %w", err)
-	}
-
-	var agentsYAML []map[string]interface{}
-	if err := yaml.Unmarshal(agentsData, &agentsYAML); err != nil {
-		return fmt.Errorf("failed to parse agents YAML: %w", err)
-	}
-
-	// Find the specified agent or use the first one if no name is provided
-	var agentDef map[string]interface{}
-	var name string
-	for _, agent := range agentsYAML {
-		metadata, ok := agent["metadata"].(map[string]interface{})
-		if !ok {
-			continue
-		}
-
-		name, ok = metadata["name"].(string)
-		if !ok {
-			continue
-		}
-
-		if agentName == "" || agentName == name {
-			agentDef = agent
-			break
-		}
-	}
-
-	if agentDef == nil {
-		return fmt.Errorf("agent not found: %s", agentName)
-	}
-
-	// Extract image from agent definition
-	spec, ok := agentDef["spec"].(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid agent definition: missing spec")
-	}
-
-	image, ok := spec["image"].(string)
-	if !ok {
-		return fmt.Errorf("invalid agent definition: missing image")
-	}
-
+func CreateContaineredAgent(imageURL string, agentName string, host string, port int, logger *zap.Logger) error {
 	// Create deployment and service
-	if err := mockDeploymentServiceFunc(image, name, "default", 1, int32(port), int32(port), "LoadBalancer", 30051, logger); err != nil {
+	if err := CreateDeploymentService(imageURL, agentName, "default", 1, int32(port), int32(port), "LoadBalancer", 30051, logger); err != nil {
 		return fmt.Errorf("failed to create deployment and service: %w", err)
 	}
 
@@ -90,12 +44,11 @@ func CreateDeploymentService(
 	nodePort int32,
 	logger *zap.Logger,
 ) error {
-	// Load Kubernetes configuration
-	config, err := clientcmd.BuildConfigFromFlags("", os.Getenv("KUBECONFIG"))
+	kubeconfig := filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
-		return fmt.Errorf("failed to load kubeconfig: %w", err)
+		return fmt.Errorf("Error building kubeconfig: %v", err)
 	}
-
 	// Create Kubernetes clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {

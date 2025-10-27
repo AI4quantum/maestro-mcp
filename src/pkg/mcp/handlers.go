@@ -679,7 +679,6 @@ func handleServeWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	if !ok {
 		return nil, fmt.Errorf("workflow is required and must be a string")
 	}
-	fmt.Println(workflow)
 
 	host := "127.0.0.1"
 	if h, ok := args["host"].(string); ok {
@@ -738,13 +737,13 @@ func handleServeContainerAgent(ctx context.Context, request mcp.CallToolRequest)
 	// Extract arguments from request
 	args := request.Params.Arguments.(map[string]interface{})
 
-	agent, ok := args["agent"].(string)
+	imageURL, ok := args["image_url"].(string)
 	if !ok {
-		return nil, fmt.Errorf("agent is required and must be a string")
+		return nil, fmt.Errorf("image_url is required and must be a string")
 	}
 
 	agentName := ""
-	if an, ok := args["agent_name"].(string); ok {
+	if an, ok := args["app_name"].(string); ok {
 		agentName = an
 	}
 
@@ -758,23 +757,12 @@ func handleServeContainerAgent(ctx context.Context, request mcp.CallToolRequest)
 		port = int(p)
 	}
 
-	// Create a temporary file to store the agent definition
-	tempAgentFile := fmt.Sprintf("agent_%s.yaml", time.Now().Format("20060102_150405"))
-
-	// Write agent definition to file
-	if err := os.WriteFile(tempAgentFile, []byte(agent), 0644); err != nil {
-		return nil, fmt.Errorf("failed to write agent to file: %w", err)
-	}
-
 	// Create and deploy the containerized agent
 	go func() {
-		if err := maestro.CreateContaineredAgent(tempAgentFile, agentName, host, port, GlobalServerState.Logger); err != nil {
+		if err := maestro.CreateContaineredAgent(imageURL, agentName, host, port, GlobalServerState.Logger); err != nil {
 			GlobalServerState.Logger.Error("Failed to create containerized agent",
 				zap.String("agent_name", agentName),
 				zap.Error(err))
-
-			// Clean up temporary file
-			os.Remove(tempAgentFile)
 		}
 	}()
 
