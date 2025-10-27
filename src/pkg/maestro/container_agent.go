@@ -19,9 +19,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// Variable to hold the deployment service function for testing
-var mockDeploymentServiceFunc = CreateDeploymentService
-
 // CreateContaineredAgent creates a containerized agent from an agent definition file
 func CreateContaineredAgent(imageURL string, agentName string, host string, port int, logger *zap.Logger) error {
 	// Create deployment and service
