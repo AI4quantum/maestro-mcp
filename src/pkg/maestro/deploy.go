@@ -217,7 +217,7 @@ func (d *Deploy) BuildImage(agent string, workflow string) error {
 	}
 
 	// Copy deployment files
-	deploymentsDir := filepath.Join(moduleDir, "../../deployments")
+	deploymentsDir := filepath.Join(moduleDir, "deployments")
 	tmpDeployDir := filepath.Join(d.TmpDir, "tmp")
 	if err := os.MkdirAll(tmpDeployDir, 0755); err != nil {
 		return fmt.Errorf("failed to create tmp directory: %w", err)
@@ -227,13 +227,14 @@ func (d *Deploy) BuildImage(agent string, workflow string) error {
 		return fmt.Errorf("failed to copy deployment files: %w", err)
 	}
 
-	// Copy agent and workflow files
-	if err := copyFile(agent, filepath.Join(tmpDeployDir, "agents.yaml")); err != nil {
-		return fmt.Errorf("failed to copy agent file: %w", err)
+	// Write agent contents to file
+	if err := os.WriteFile(filepath.Join(tmpDeployDir, "agents.yaml"), []byte(agent), 0644); err != nil {
+		return fmt.Errorf("failed to write agent file: %w", err)
 	}
 
-	if err := copyFile(workflow, filepath.Join(tmpDeployDir, "workflow.yaml")); err != nil {
-		return fmt.Errorf("failed to copy workflow file: %w", err)
+	// Write workflow contents to file
+	if err := os.WriteFile(filepath.Join(tmpDeployDir, "workflow.yaml"), []byte(workflow), 0644); err != nil {
+		return fmt.Errorf("failed to write workflow file: %w", err)
 	}
 
 	// Change to tmp directory and build the image
