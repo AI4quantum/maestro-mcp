@@ -807,18 +807,29 @@ func handleDeployWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	deploy := maestro.NewDeploy(agents, workflow, env, target, GlobalServerState.Logger)
 	if target == "docker" {
-		err := deploy.DeployToDocker()
-		if err != nil {
-			GlobalServerState.Logger.Error("Failed to deploy to docker",
-				zap.Error(err))
-		}
+		// Execute Docker deployment asynchronously in a goroutine
+		go func() {
+			err := deploy.DeployToDocker()
+			if err != nil {
+				GlobalServerState.Logger.Error("Failed to deploy to docker",
+					zap.Error(err))
+			} else {
+				GlobalServerState.Logger.Info("Docker deployment completed successfully")
+			}
+		}()
+		GlobalServerState.Logger.Info("Started asynchronous Docker deployment")
 	} else if target == "kubernetes" {
-		err := deploy.DeployToKubernetes()
-		if err != nil {
-			GlobalServerState.Logger.Error("Failed to deploy to kubernetes",
-				zap.Error(err))
-
-		}
+		// Execute Kubernetes deployment asynchronously in a goroutine
+		go func() {
+			err := deploy.DeployToKubernetes()
+			if err != nil {
+				GlobalServerState.Logger.Error("Failed to deploy to kubernetes",
+					zap.Error(err))
+			} else {
+				GlobalServerState.Logger.Info("Kubernetes deployment completed successfully")
+			}
+		}()
+		GlobalServerState.Logger.Info("Started asynchronous Kubernetes deployment")
 	}
 	// TODO: Implement workflow deployment logic
 	// This would involve deploying the workflow to the specified target
@@ -830,7 +841,7 @@ func handleDeployWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mc
 	response, err := mcp.NewToolResultJSON(
 		map[string]interface{}{
 			"status":  "ok",
-			"message": fmt.Sprintf("Successfully deployed workflow to %s", target),
+			"message": fmt.Sprintf("Successfully started asynchronous deployment of workflow to %s", target),
 		})
 
 	return response, err
