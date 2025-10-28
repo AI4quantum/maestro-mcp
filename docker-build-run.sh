@@ -26,9 +26,7 @@ print_header() {
 # Build the Docker image
 build_image() {
     print_header "Building Maestro MCP Docker image..."
-    docker build -t maestro-mcp:latest .
-    
-    if [ $? -eq 0 ]; then
+    if docker build -t maestro-mcp:latest .; then
         print_status "Docker image built successfully!"
     else
         print_error "Failed to build Docker image"
@@ -55,13 +53,11 @@ run_container() {
     
     # Run the container
     print_status "Starting new container..."
-    docker run -d \
+    if docker run -d \
         --name maestro-mcp \
         -p 8030:8030 \
         -v "$(pwd)/config.yaml:/app/config.yaml" \
-        maestro-mcp:latest
-    
-    if [ $? -eq 0 ]; then
+        maestro-mcp:latest; then
         print_status "Container started successfully!"
         print_status "Maestro MCP is running at http://localhost:8030"
     else
