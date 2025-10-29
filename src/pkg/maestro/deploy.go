@@ -54,29 +54,16 @@ func FlagArrayBuild(strFlags string) []string {
 //   - cmd: The command to run.
 //   - target: The target port.
 //   - env: The environment variables.
+//   - tmpDir: The temporary directory to mount to /app/src in the container.
 //
 // Returns:
 //   - The docker arguments.
-func CreateDockerArgs(cmd string, target string, env string) []string {
-	arg := []string{cmd, "run", "-d", "-p", fmt.Sprintf("%s:5000", target)}
+func CreateDockerArgs(cmd string, target string, env string, tmpDir string) []string {
+	arg := []string{cmd, "run", "-d", "-p", fmt.Sprintf("%s:8080", "5050")}
+	// Add volume mount for the temporary directory
+	arg = append(arg, "-v", fmt.Sprintf("%s:/app/src", tmpDir))
 	arg = append(arg, EnvArrayDocker(env)...)
-	arg = append(arg, "maestro")
-	return arg
-}
-
-// CreateBuildArgs creates the build arguments for the given command and flags.
-// Parameters:
-//   - cmd: The command to be executed.
-//   - flags: A string of flags to be included in the build arguments.
-//
-// Returns:
-//   - A list of build arguments.
-func CreateBuildArgs(cmd string, flags string) []string {
-	arg := []string{cmd, "build"}
-	if flags != "" {
-		arg = append(arg, FlagArrayBuild(flags)...)
-	}
-	arg = append(arg, "-t", "maestro", "-f", "Dockerfile", "..")
+	arg = append(arg, "maestro-api")
 	return arg
 }
 
@@ -196,86 +183,34 @@ func NewDeploy(agentDefs string, workflowDefs string, env string, target string,
 	}
 }
 
-// BuildImage builds an image for the Maestro application.
-func (d *Deploy) BuildImage(agent string, workflow string) error {
-	// Get the module directory
-	moduleDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	// Create temporary directory
+// DeployToDocker deploys the agent to a Docker container.
+func (d *Deploy) DeployToDocker() error {
+	// Create temporary directory for deployment
 	d.TmpDir = filepath.Join(os.TempDir(), "maestro")
 	if err := os.MkdirAll(d.TmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
-	// Copy source files
-	srcDir := filepath.Join(moduleDir, "..")
-	if err := copyDir(srcDir, d.TmpDir); err != nil {
-		return fmt.Errorf("failed to copy source files: %w", err)
-	}
-
-	// Copy deployment files
-	deploymentsDir := filepath.Join(moduleDir, "deployments")
-	tmpDeployDir := filepath.Join(d.TmpDir, "tmp")
-	if err := os.MkdirAll(tmpDeployDir, 0755); err != nil {
-		return fmt.Errorf("failed to create tmp directory: %w", err)
-	}
-
-	if err := copyDir(deploymentsDir, tmpDeployDir); err != nil {
-		return fmt.Errorf("failed to copy deployment files: %w", err)
+	// Create src directory in the temporary directory
+	srcDir := filepath.Join(d.TmpDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		return fmt.Errorf("failed to create src directory: %w", err)
 	}
 
 	// Write agent contents to file
-	if err := os.WriteFile(filepath.Join(tmpDeployDir, "agents.yaml"), []byte(agent), 0644); err != nil {
-		return fmt.Errorf("failed to write agent file: %w", err)
+	agentsFile := filepath.Join(srcDir, "agents.yaml")
+	if err := os.WriteFile(agentsFile, []byte(d.Agent), 0644); err != nil {
+		return fmt.Errorf("failed to write agents file: %w", err)
 	}
 
 	// Write workflow contents to file
-	if err := os.WriteFile(filepath.Join(tmpDeployDir, "workflow.yaml"), []byte(workflow), 0644); err != nil {
+	workflowFile := filepath.Join(srcDir, "workflow.yaml")
+	if err := os.WriteFile(workflowFile, []byte(d.Workflow), 0644); err != nil {
 		return fmt.Errorf("failed to write workflow file: %w", err)
 	}
 
-	// Change to tmp directory and build the image
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	if err := os.Chdir(tmpDeployDir); err != nil {
-		return fmt.Errorf("failed to change directory: %w", err)
-	}
-
-	// Build the image
-	buildArgs := CreateBuildArgs(d.Cmd, d.Flags)
-	cmd := exec.Command(buildArgs[0], buildArgs[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		// Change back to original directory before returning error
-		_ = os.Chdir(currentDir)
-		return fmt.Errorf("failed to build image: %w", err)
-	}
-
-	// Change back to original directory
-	if err := os.Chdir(currentDir); err != nil {
-		return fmt.Errorf("failed to change back to original directory: %w", err)
-	}
-
-	return nil
-}
-
-// DeployToDocker deploys the agent to a Docker container.
-func (d *Deploy) DeployToDocker() error {
-	// Build the image
-	if err := d.BuildImage(d.Agent, d.Workflow); err != nil {
-		return err
-	}
-
 	// Run the container
-	dockerArgs := CreateDockerArgs(d.Cmd, d.Target, d.Env)
+	dockerArgs := CreateDockerArgs(d.Cmd, d.Target, d.Env, srcDir)
 	cmd := exec.Command(dockerArgs[0], dockerArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -285,18 +220,19 @@ func (d *Deploy) DeployToDocker() error {
 	}
 
 	// Clean up temporary directory
-	if err := os.RemoveAll(d.TmpDir); err != nil {
-		return fmt.Errorf("failed to clean up temporary directory: %w", err)
-	}
+	//if err := os.RemoveAll(d.TmpDir); err != nil {
+	//	return fmt.Errorf("failed to clean up temporary directory: %w", err)
+	//}
 
 	return nil
 }
 
 // DeployToKubernetes deploys the trained model to Kubernetes.
 func (d *Deploy) DeployToKubernetes() error {
-	// Build the image
-	if err := d.BuildImage(d.Agent, d.Workflow); err != nil {
-		return err
+	// Create temporary directory for deployment
+	d.TmpDir = filepath.Join(os.TempDir(), "maestro")
+	if err := os.MkdirAll(d.TmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
 	// Update deployment YAML with environment variables
@@ -349,67 +285,6 @@ func (d *Deploy) DeployToKubernetes() error {
 	// Clean up temporary directory
 	if err := os.RemoveAll(d.TmpDir); err != nil {
 		return fmt.Errorf("failed to clean up temporary directory: %w", err)
-	}
-
-	return nil
-}
-
-// Helper functions
-
-// copyFile copies a file from src to dst
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return fmt.Errorf("failed to read source file: %w", err)
-	}
-
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return fmt.Errorf("failed to write destination file: %w", err)
-	}
-
-	return nil
-}
-
-// copyDir recursively copies a directory from src to dst
-func copyDir(src, dst string) error {
-	// Get file info
-	info, err := os.Stat(src)
-	if err != nil {
-		return fmt.Errorf("failed to get source directory info: %w", err)
-	}
-
-	// Check if it's a directory
-	if !info.IsDir() {
-		return fmt.Errorf("source is not a directory")
-	}
-
-	// Create destination directory
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	// Read directory entries
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return fmt.Errorf("failed to read source directory: %w", err)
-	}
-
-	// Copy each entry
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			// Recursively copy subdirectory
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			// Copy file
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
