@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Maestro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/8.0.0/mermaid.min.js"></script>
+</head>
+<style>
+  body {color: black; background-color: white;}
+  .container {
+      display: flex;
+      justify-content: space-between;
+  }
+  frame {
+      border: 1px solid black;
+      background-color: yellow;
+  }
+  #output {
+      flex: 1;
+      height: 500px;
+      overflow: scroll;
+  }
+  .mermaid-container {
+      flex: 1;
+  }
+</style>
+<body>
+    <div id="title"></div>
+        <h1>Workflow: <a href="src/workflow.yaml">{{ .title }}</a></h1>
+        <p><a href="src/agents.yaml">Agent definitions</a>
+    <div class="container">
+        <div id="output" style="height: 500px; overflow: scroll;">
+	  <script>
+            var source = new EventSource('/stream');
+            source.onmessage = function(event) {
+                document.getElementById('output').innerHTML += event.data + '<br>';
+//                if event.data.includes("EndEnd") {
+//                    source.close();
+//                };
+            };
+	  </script>
+        </div>
+        <div class="mermaid-container">
+          <pre><code class="language-mermaid">
+       {{ .diagram }}
+           </code></pre>
+        </div>
+    </div>
+    <form action="/" method="get">
+        <input type="text" name="Prompt" placeholder="Enter your prompt here">
+        <input type="checkbox" name="Clear Output" value="true"> Clear Output
+        <input type="submit" value="Re-run">
+    </form>
+</body>
+<script>
+var config = {
+    startOnLoad:true,
+    theme: 'forest',
+    flowchart:{
+            useMaxWidth:false,
+            htmlLabels:true
+        }
+};
+mermaid.initialize(config);
+
+// Initialize mermaid diagrams when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+});
+
+// Re-initialize mermaid diagrams after form submission
+document.querySelector('form').addEventListener('submit', function() {
+    // Store the diagram content to ensure it's preserved
+    localStorage.setItem('mermaidDiagram', document.querySelector('.language-mermaid').textContent);
+});
+
+// Check if we need to restore the diagram
+if (localStorage.getItem('mermaidDiagram')) {
+    // Wait a bit to ensure the DOM is ready
+    setTimeout(function() {
+        // Re-initialize mermaid
+        window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'));
+    }, 100);
+}
+</script>
+</html>
