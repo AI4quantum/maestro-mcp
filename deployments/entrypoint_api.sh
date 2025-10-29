@@ -1,4 +1,4 @@
 #!/bin/sh
 
-python3.11 api.py
-
+# Start the API executable
+./api
