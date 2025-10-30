@@ -272,4 +272,31 @@ func TestNewDeploy(t *testing.T) {
 // directly because they interact with external systems (Docker, Kubernetes).
 // In a real-world scenario, these would be tested with mocks or in an integration test.
 
+// TestCreateConfigMap tests the CreateConfigMap function.
+// Note: This is a mock test that doesn't actually apply the ConfigMap to a Kubernetes cluster.
+func TestCreateConfigMap(t *testing.T) {
+	// Skip this test if we're not in a test environment with kubectl
+	if os.Getenv("TEST_WITH_KUBECTL") != "true" {
+		t.Skip("Skipping test that requires kubectl")
+	}
+
+	// Test data
+	agentsYAML := `agents:
+  - name: test-agent
+    type: test`
+	workflowYAML := `workflow:
+  name: test-workflow
+  steps:
+    - name: test-step`
+
+	// Call the function
+	err := CreateConfigMap(agentsYAML, workflowYAML)
+	if err != nil {
+		t.Fatalf("CreateConfigMap failed: %v", err)
+	}
+
+	// Note: In a real test, we would verify that the ConfigMap was created correctly
+	// by querying the Kubernetes API, but that's beyond the scope of this test.
+}
+
 // Made with Bob

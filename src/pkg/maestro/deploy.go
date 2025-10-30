@@ -229,43 +229,110 @@ func (d *Deploy) DeployToDocker() error {
 
 // DeployToKubernetes deploys the trained model to Kubernetes.
 func (d *Deploy) DeployToKubernetes() error {
+	// Create ConfigMap with agents and workflow YAML
+	if err := CreateConfigMap(d.Agent, d.Workflow); err != nil {
+		return fmt.Errorf("failed to create ConfigMap: %w", err)
+	}
+
 	// Create temporary directory for deployment
 	d.TmpDir = filepath.Join(os.TempDir(), "maestro")
 	if err := os.MkdirAll(d.TmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
-	// Update deployment YAML with environment variables
-	if err := UpdateYAML(filepath.Join(d.TmpDir, "tmp/deployment.yaml"), d.Env); err != nil {
-		return fmt.Errorf("failed to update deployment YAML: %w", err)
+	// Deployment template - using raw string to avoid any hidden characters
+	deploymentTemplate := "apiVersion: apps/v1\n" +
+		"kind: Deployment\n" +
+		"metadata:\n" +
+		"  name: maestro\n" +
+		"spec:\n" +
+		"  replicas: 1\n" +
+		"  selector:\n" +
+		"    matchLabels:\n" +
+		"      app: maestro\n" +
+		"  template:\n" +
+		"    metadata:\n" +
+		"      labels:\n" +
+		"        app: maestro\n" +
+		"    spec:\n" +
+		"      containers:\n" +
+		"      - name: maestro\n" +
+		"        image: maestro-api:latest\n" +
+		"        imagePullPolicy: Never\n" +
+		"        ports:\n" +
+		"        - containerPort: 8080\n" +
+		"        env:\n" +
+		"        - name: DUMMY\n" +
+		"          value: dummyvalue\n" +
+		"        volumeMounts:\n" +
+		"        - name: maestro-config\n" +
+		"          mountPath: /app/src\n" +
+		"      volumes:\n" +
+		"      - name: maestro-config\n" +
+		"        configMap:\n" +
+		"          name: maestrodata"
+
+	// Parse the deployment template
+	var deploymentData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(deploymentTemplate), &deploymentData); err != nil {
+		return fmt.Errorf("failed to parse deployment template: %w", err)
 	}
 
-	// Tag the image if IMAGE_TAG_CMD is set
-	imageTagCmd := os.Getenv("IMAGE_TAG_CMD")
-	if imageTagCmd != "" {
-		cmd := exec.Command("sh", "-c", imageTagCmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+	// Add environment variables
+	if d.Env != "" {
+		spec := deploymentData["spec"].(map[string]interface{})
+		template := spec["template"].(map[string]interface{})
+		templateSpec := template["spec"].(map[string]interface{})
+		containers := templateSpec["containers"].([]interface{})
+		container := containers[0].(map[string]interface{})
 
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to tag image: %w", err)
+		// Get or create env array
+		var env []interface{}
+		if existingEnv, ok := container["env"].([]interface{}); ok {
+			env = existingEnv
+		} else {
+			env = []interface{}{}
 		}
+
+		// Add environment variables
+		pairs := strings.Fields(d.Env)
+		for _, pair := range pairs {
+			parts := strings.SplitN(pair, "=", 2)
+			if len(parts) == 2 {
+				env = append(env, map[string]interface{}{
+					"name":  parts[0],
+					"value": parts[1],
+				})
+			}
+		}
+
+		// Update the env array
+		container["env"] = env
 	}
 
-	// Push the image if IMAGE_PUSH_CMD is set
-	imagePushCmd := os.Getenv("IMAGE_PUSH_CMD")
-	if imagePushCmd != "" {
-		cmd := exec.Command("sh", "-c", imagePushCmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+	// Marshal the updated deployment YAML
+	updatedDeploymentYAML, err := yaml.Marshal(deploymentData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal deployment YAML: %w", err)
+	}
 
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to push image: %w", err)
-		}
+	// Create a temporary file for the deployment YAML
+	deploymentFile, err := os.CreateTemp(d.TmpDir, "deployment-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary deployment file: %w", err)
+	}
+	defer os.Remove(deploymentFile.Name())
+
+	// Write the deployment YAML to the temporary file
+	if _, err := deploymentFile.Write(updatedDeploymentYAML); err != nil {
+		return fmt.Errorf("failed to write deployment YAML: %w", err)
+	}
+	if err := deploymentFile.Close(); err != nil {
+		return fmt.Errorf("failed to close deployment file: %w", err)
 	}
 
 	// Apply deployment
-	deployCmd := exec.Command("kubectl", "apply", "-f", filepath.Join(d.TmpDir, "tmp/deployment.yaml"))
+	deployCmd := exec.Command("kubectl", "apply", "-f", deploymentFile.Name())
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
 
@@ -273,8 +340,38 @@ func (d *Deploy) DeployToKubernetes() error {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
+	// Service template - using raw string to avoid any hidden characters
+	serviceTemplate := "apiVersion: v1\n" +
+		"kind: Service\n" +
+		"metadata:\n" +
+		"  name: maestro\n" +
+		"spec:\n" +
+		"  selector:\n" +
+		"    app: maestro\n" +
+		"  ports:\n" +
+		"    - protocol: TCP\n" +
+		"      port: 80\n" +
+		"      targetPort: 8080\n" +
+		"      nodePort: 30051\n" +
+		"  type: NodePort"
+
+	// Create a temporary file for the service YAML
+	serviceFile, err := os.CreateTemp(d.TmpDir, "service-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary service file: %w", err)
+	}
+	defer os.Remove(serviceFile.Name())
+
+	// Write the service YAML to the temporary file
+	if _, err := serviceFile.WriteString(serviceTemplate); err != nil {
+		return fmt.Errorf("failed to write service YAML: %w", err)
+	}
+	if err := serviceFile.Close(); err != nil {
+		return fmt.Errorf("failed to close service file: %w", err)
+	}
+
 	// Apply service
-	serviceCmd := exec.Command("kubectl", "apply", "-f", filepath.Join(d.TmpDir, "tmp/service.yaml"))
+	serviceCmd := exec.Command("kubectl", "apply", "-f", serviceFile.Name())
 	serviceCmd.Stdout = os.Stdout
 	serviceCmd.Stderr = os.Stderr
 
@@ -285,6 +382,59 @@ func (d *Deploy) DeployToKubernetes() error {
 	// Clean up temporary directory
 	if err := os.RemoveAll(d.TmpDir); err != nil {
 		return fmt.Errorf("failed to clean up temporary directory: %w", err)
+	}
+
+	return nil
+}
+
+// CreateConfigMap creates a Kubernetes ConfigMap with the given agents and workflow YAML content
+// and applies it to the Kubernetes cluster.
+// Parameters:
+//   - agentsYAML: The content of the agents.yaml file.
+//   - workflowYAML: The content of the workflow.yaml file.
+//
+// Returns:
+//   - error if any
+func CreateConfigMap(agentsYAML string, workflowYAML string) error {
+	// Create a temporary directory for the ConfigMap YAML
+	tmpDir := filepath.Join(os.TempDir(), "maestro-configmap")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create the ConfigMap structure
+	configMap := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name": "maestrodata",
+		},
+		"data": map[string]interface{}{
+			"agents.yaml":   agentsYAML,
+			"workflow.yaml": workflowYAML,
+		},
+	}
+
+	// Marshal the ConfigMap to YAML
+	configMapYAML, err := yaml.Marshal(configMap)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ConfigMap to YAML: %w", err)
+	}
+
+	// Write the ConfigMap YAML to a temporary file
+	configMapFile := filepath.Join(tmpDir, "configmap.yaml")
+	if err := os.WriteFile(configMapFile, configMapYAML, 0644); err != nil {
+		return fmt.Errorf("failed to write ConfigMap YAML file: %w", err)
+	}
+
+	// Apply the ConfigMap using kubectl
+	cmd := exec.Command("kubectl", "apply", "-f", configMapFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to apply ConfigMap: %w", err)
 	}
 
 	return nil
