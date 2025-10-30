@@ -20,7 +20,9 @@ func TestCreateAgents(t *testing.T) {
 
 		// Restore the original agents.db file if it existed
 		if hasOriginalDB {
-			os.WriteFile("agents.db", originalDB, 0644)
+			if err := os.WriteFile("agents.db", originalDB, 0644); err != nil {
+				t.Logf("Failed to restore original agents.db file: %v", err)
+			}
 		}
 	}()
 
