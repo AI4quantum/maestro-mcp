@@ -4,7 +4,6 @@
 package maestro
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -81,30 +80,31 @@ func ParseYAML(filePath string) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("could not read YAML file: %w", err)
 	}
 
-	// Parse the YAML documents
-	var docs []map[string]interface{}
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	// Replace tabs with spaces to avoid YAML parsing issues
+	dataStr := strings.ReplaceAll(string(data), "\t", "  ")
 
-	// Read all documents from the YAML file
-	for {
-		var doc map[string]interface{}
-		err := decoder.Decode(&doc)
-		if err != nil {
-			break
+	// Try to parse as a list of documents first
+	var docList []map[string]interface{}
+	err = yaml.Unmarshal([]byte(dataStr), &docList)
+	if err == nil && len(docList) > 0 {
+		// Add source file information to each document
+		absPath, _ := filepath.Abs(filePath)
+		for i := range docList {
+			docList[i]["source_file"] = absPath
 		}
+		return docList, nil
+	}
 
-		// Add source file information
+	// If that fails, try to parse as a single document
+	var doc map[string]interface{}
+	err = yaml.Unmarshal([]byte(dataStr), &doc)
+	if err == nil && len(doc) > 0 {
 		absPath, _ := filepath.Abs(filePath)
 		doc["source_file"] = absPath
-
-		docs = append(docs, doc)
+		return []map[string]interface{}{doc}, nil
 	}
 
-	if len(docs) == 0 {
-		return nil, fmt.Errorf("no valid YAML documents found in file")
-	}
-
-	return docs, nil
+	return nil, fmt.Errorf("no valid YAML documents found in file")
 }
 
 // LoadWorkflow loads the workflow from the workflow file

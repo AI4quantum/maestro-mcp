@@ -5,14 +5,24 @@ package maestro
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 func TestCreateAgents(t *testing.T) {
-	// Create a temporary directory for agent files
-	tempDir := filepath.Join(os.TempDir(), "maestro_test")
-	defer os.RemoveAll(tempDir)
+	// Save the original agents.db file if it exists
+	originalDB, err := os.ReadFile("agents.db")
+	hasOriginalDB := err == nil
+
+	// Clean up after the test
+	defer func() {
+		// Remove the test agents.db file
+		os.Remove("agents.db")
+
+		// Restore the original agents.db file if it existed
+		if hasOriginalDB {
+			os.WriteFile("agents.db", originalDB, 0644)
+		}
+	}()
 
 	// Create test agent definitions
 	agentDefs := []map[string]interface{}{
@@ -36,23 +46,30 @@ func TestCreateAgents(t *testing.T) {
 	}
 
 	// Call CreateAgents
-	err := CreateAgents(agentDefs)
+	err = CreateAgents(agentDefs)
 	if err != nil {
-		t.Fatalf("createAgents failed: %v", err)
+		t.Fatalf("CreateAgents failed: %v", err)
 	}
 
-	// Verify agent files were created
-	agentsDir := filepath.Join(os.TempDir(), "maestro", "agents")
-
-	// Check if agent files exist
-	agent1Path := filepath.Join(agentsDir, "test-agent-1.json")
-	if _, err := os.Stat(agent1Path); os.IsNotExist(err) {
-		t.Errorf("Agent file not created: %s", agent1Path)
+	// Verify agents.db file was created
+	if _, err := os.Stat("agents.db"); os.IsNotExist(err) {
+		t.Errorf("agents.db file not created")
+		return
 	}
 
-	agent2Path := filepath.Join(agentsDir, "test-agent-2.json")
-	if _, err := os.Stat(agent2Path); os.IsNotExist(err) {
-		t.Errorf("Agent file not created: %s", agent2Path)
+	// Load the agent database to verify agents were saved
+	db, err := LoadAgentDB()
+	if err != nil {
+		t.Fatalf("Failed to load agent database: %v", err)
+	}
+
+	// Check if agents exist in the database
+	if _, ok := db.Agents["test-agent-1"]; !ok {
+		t.Errorf("Agent 'test-agent-1' not found in database")
+	}
+
+	if _, ok := db.Agents["test-agent-2"]; !ok {
+		t.Errorf("Agent 'test-agent-2' not found in database")
 	}
 }
 

@@ -99,7 +99,7 @@ func TestCreateDockerArgs(t *testing.T) {
 			target: "8080",
 			env:    "",
 			tmpDir: "/tmp/test",
-			want:   []string{"docker", "run", "-d", "-p", "8080:5000", "-v", "/tmp/test:/app/src", "maestro"},
+			want:   []string{"docker", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test:/app/src", "maestro-api"},
 		},
 		{
 			name:   "With environment variables",
@@ -107,7 +107,7 @@ func TestCreateDockerArgs(t *testing.T) {
 			target: "8080",
 			env:    "KEY1=value1 KEY2=value2",
 			tmpDir: "/tmp/test2",
-			want:   []string{"docker", "run", "-d", "-p", "8080:5000", "-v", "/tmp/test2:/app/src", "-e", "KEY1=value1", "-e", "KEY2=value2", "maestro"},
+			want:   []string{"docker", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test2:/app/src", "-e", "KEY1=value1", "-e", "KEY2=value2", "maestro-api"},
 		},
 		{
 			name:   "With podman",
@@ -115,7 +115,7 @@ func TestCreateDockerArgs(t *testing.T) {
 			target: "9000",
 			env:    "DEBUG=true",
 			tmpDir: "/tmp/test3",
-			want:   []string{"podman", "run", "-d", "-p", "9000:5000", "-v", "/tmp/test3:/app/src", "-e", "DEBUG=true", "maestro"},
+			want:   []string{"podman", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test3:/app/src", "-e", "DEBUG=true", "maestro-api"},
 		},
 	}
 
