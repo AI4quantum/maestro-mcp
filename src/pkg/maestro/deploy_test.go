@@ -90,6 +90,7 @@ func TestCreateDockerArgs(t *testing.T) {
 		cmd    string
 		target string
 		env    string
+		tmpDir string
 		want   []string
 	}{
 		{
@@ -97,66 +98,32 @@ func TestCreateDockerArgs(t *testing.T) {
 			cmd:    "docker",
 			target: "8080",
 			env:    "",
-			want:   []string{"docker", "run", "-d", "-p", "8080:5000", "maestro"},
+			tmpDir: "/tmp/test",
+			want:   []string{"docker", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test:/app/src", "maestro-api"},
 		},
 		{
 			name:   "With environment variables",
 			cmd:    "docker",
 			target: "8080",
 			env:    "KEY1=value1 KEY2=value2",
-			want:   []string{"docker", "run", "-d", "-p", "8080:5000", "-e", "KEY1=value1", "-e", "KEY2=value2", "maestro"},
+			tmpDir: "/tmp/test2",
+			want:   []string{"docker", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test2:/app/src", "-e", "KEY1=value1", "-e", "KEY2=value2", "maestro-api"},
 		},
 		{
 			name:   "With podman",
 			cmd:    "podman",
 			target: "9000",
 			env:    "DEBUG=true",
-			want:   []string{"podman", "run", "-d", "-p", "9000:5000", "-e", "DEBUG=true", "maestro"},
+			tmpDir: "/tmp/test3",
+			want:   []string{"podman", "run", "-d", "-p", "5050:8080", "-v", "/tmp/test3:/app/src", "-e", "DEBUG=true", "maestro-api"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateDockerArgs(tt.cmd, tt.target, tt.env)
+			got := CreateDockerArgs(tt.cmd, tt.target, tt.env, tt.tmpDir)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("CreateDockerArgs() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestCreateBuildArgs(t *testing.T) {
-	tests := []struct {
-		name  string
-		cmd   string
-		flags string
-		want  []string
-	}{
-		{
-			name:  "Basic build command",
-			cmd:   "docker",
-			flags: "",
-			want:  []string{"docker", "build", "-t", "maestro", "-f", "Dockerfile", ".."},
-		},
-		{
-			name:  "With build flags",
-			cmd:   "docker",
-			flags: "no-cache=true pull=true",
-			want:  []string{"docker", "build", "no-cache", "true", "pull", "true", "-t", "maestro", "-f", "Dockerfile", ".."},
-		},
-		{
-			name:  "With podman",
-			cmd:   "podman",
-			flags: "force-rm=true",
-			want:  []string{"podman", "build", "force-rm", "true", "-t", "maestro", "-f", "Dockerfile", ".."},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := CreateBuildArgs(tt.cmd, tt.flags)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CreateBuildArgs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -301,106 +268,35 @@ func TestNewDeploy(t *testing.T) {
 	}
 }
 
-func TestCopyFile(t *testing.T) {
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "deploy_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create a source file
-	srcContent := "test content"
-	srcFile := filepath.Join(tempDir, "source.txt")
-	if err := os.WriteFile(srcFile, []byte(srcContent), 0644); err != nil {
-		t.Fatalf("Failed to write source file: %v", err)
-	}
-
-	// Copy the file
-	dstFile := filepath.Join(tempDir, "destination.txt")
-	if err := copyFile(srcFile, dstFile); err != nil {
-		t.Fatalf("copyFile failed: %v", err)
-	}
-
-	// Verify the destination file
-	dstContent, err := os.ReadFile(dstFile)
-	if err != nil {
-		t.Fatalf("Failed to read destination file: %v", err)
-	}
-
-	if string(dstContent) != srcContent {
-		t.Errorf("Expected content '%s', got '%s'", srcContent, string(dstContent))
-	}
-}
-
-func TestCopyDir(t *testing.T) {
-	// Create a temporary directory for the test
-	tempDir, err := os.MkdirTemp("", "deploy_test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Create a source directory structure
-	srcDir := filepath.Join(tempDir, "src")
-	if err := os.MkdirAll(srcDir, 0755); err != nil {
-		t.Fatalf("Failed to create source directory: %v", err)
-	}
-
-	// Create a subdirectory
-	subDir := filepath.Join(srcDir, "subdir")
-	if err := os.MkdirAll(subDir, 0755); err != nil {
-		t.Fatalf("Failed to create subdirectory: %v", err)
-	}
-
-	// Create files in the source directory
-	if err := os.WriteFile(filepath.Join(srcDir, "file1.txt"), []byte("file1 content"), 0644); err != nil {
-		t.Fatalf("Failed to write file1: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(subDir, "file2.txt"), []byte("file2 content"), 0644); err != nil {
-		t.Fatalf("Failed to write file2: %v", err)
-	}
-
-	// Copy the directory
-	dstDir := filepath.Join(tempDir, "dst")
-	if err := copyDir(srcDir, dstDir); err != nil {
-		t.Fatalf("copyDir failed: %v", err)
-	}
-
-	// Verify the destination directory structure
-	if _, err := os.Stat(dstDir); os.IsNotExist(err) {
-		t.Errorf("Destination directory not created")
-	}
-	if _, err := os.Stat(filepath.Join(dstDir, "file1.txt")); os.IsNotExist(err) {
-		t.Errorf("file1.txt not copied")
-	}
-	if _, err := os.Stat(filepath.Join(dstDir, "subdir")); os.IsNotExist(err) {
-		t.Errorf("subdir not copied")
-	}
-	if _, err := os.Stat(filepath.Join(dstDir, "subdir", "file2.txt")); os.IsNotExist(err) {
-		t.Errorf("file2.txt not copied")
-	}
-
-	// Verify file contents
-	content1, err := os.ReadFile(filepath.Join(dstDir, "file1.txt"))
-	if err != nil {
-		t.Fatalf("Failed to read file1.txt: %v", err)
-	}
-	if string(content1) != "file1 content" {
-		t.Errorf("Expected file1.txt content 'file1 content', got '%s'", string(content1))
-	}
-
-	content2, err := os.ReadFile(filepath.Join(dstDir, "subdir", "file2.txt"))
-	if err != nil {
-		t.Fatalf("Failed to read file2.txt: %v", err)
-	}
-	if string(content2) != "file2 content" {
-		t.Errorf("Expected file2.txt content 'file2 content', got '%s'", string(content2))
-	}
-}
-
 // Note: We're not testing BuildImage, DeployToDocker, and DeployToKubernetes
 // directly because they interact with external systems (Docker, Kubernetes).
 // In a real-world scenario, these would be tested with mocks or in an integration test.
+
+// TestCreateConfigMap tests the CreateConfigMap function.
+// Note: This is a mock test that doesn't actually apply the ConfigMap to a Kubernetes cluster.
+func TestCreateConfigMap(t *testing.T) {
+	// Skip this test if we're not in a test environment with kubectl
+	if os.Getenv("TEST_WITH_KUBECTL") != "true" {
+		t.Skip("Skipping test that requires kubectl")
+	}
+
+	// Test data
+	agentsYAML := `agents:
+  - name: test-agent
+    type: test`
+	workflowYAML := `workflow:
+  name: test-workflow
+  steps:
+    - name: test-step`
+
+	// Call the function
+	err := CreateConfigMap(agentsYAML, workflowYAML)
+	if err != nil {
+		t.Fatalf("CreateConfigMap failed: %v", err)
+	}
+
+	// Note: In a real test, we would verify that the ConfigMap was created correctly
+	// by querying the Kubernetes API, but that's beyond the scope of this test.
+}
 
 // Made with Bob

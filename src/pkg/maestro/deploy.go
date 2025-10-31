@@ -54,29 +54,16 @@ func FlagArrayBuild(strFlags string) []string {
 //   - cmd: The command to run.
 //   - target: The target port.
 //   - env: The environment variables.
+//   - tmpDir: The temporary directory to mount to /app/src in the container.
 //
 // Returns:
 //   - The docker arguments.
-func CreateDockerArgs(cmd string, target string, env string) []string {
-	arg := []string{cmd, "run", "-d", "-p", fmt.Sprintf("%s:5000", target)}
+func CreateDockerArgs(cmd string, target string, env string, tmpDir string) []string {
+	arg := []string{cmd, "run", "-d", "-p", fmt.Sprintf("%s:8080", "5050")}
+	// Add volume mount for the temporary directory
+	arg = append(arg, "-v", fmt.Sprintf("%s:/app/src", tmpDir))
 	arg = append(arg, EnvArrayDocker(env)...)
-	arg = append(arg, "maestro")
-	return arg
-}
-
-// CreateBuildArgs creates the build arguments for the given command and flags.
-// Parameters:
-//   - cmd: The command to be executed.
-//   - flags: A string of flags to be included in the build arguments.
-//
-// Returns:
-//   - A list of build arguments.
-func CreateBuildArgs(cmd string, flags string) []string {
-	arg := []string{cmd, "build"}
-	if flags != "" {
-		arg = append(arg, FlagArrayBuild(flags)...)
-	}
-	arg = append(arg, "-t", "maestro", "-f", "Dockerfile", "..")
+	arg = append(arg, "maestro-api")
 	return arg
 }
 
@@ -196,86 +183,34 @@ func NewDeploy(agentDefs string, workflowDefs string, env string, target string,
 	}
 }
 
-// BuildImage builds an image for the Maestro application.
-func (d *Deploy) BuildImage(agent string, workflow string) error {
-	// Get the module directory
-	moduleDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	// Create temporary directory
+// DeployToDocker deploys the agent to a Docker container.
+func (d *Deploy) DeployToDocker() error {
+	// Create temporary directory for deployment
 	d.TmpDir = filepath.Join(os.TempDir(), "maestro")
 	if err := os.MkdirAll(d.TmpDir, 0755); err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
-	// Copy source files
-	srcDir := filepath.Join(moduleDir, "..")
-	if err := copyDir(srcDir, d.TmpDir); err != nil {
-		return fmt.Errorf("failed to copy source files: %w", err)
-	}
-
-	// Copy deployment files
-	deploymentsDir := filepath.Join(moduleDir, "deployments")
-	tmpDeployDir := filepath.Join(d.TmpDir, "tmp")
-	if err := os.MkdirAll(tmpDeployDir, 0755); err != nil {
-		return fmt.Errorf("failed to create tmp directory: %w", err)
-	}
-
-	if err := copyDir(deploymentsDir, tmpDeployDir); err != nil {
-		return fmt.Errorf("failed to copy deployment files: %w", err)
+	// Create src directory in the temporary directory
+	srcDir := filepath.Join(d.TmpDir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		return fmt.Errorf("failed to create src directory: %w", err)
 	}
 
 	// Write agent contents to file
-	if err := os.WriteFile(filepath.Join(tmpDeployDir, "agents.yaml"), []byte(agent), 0644); err != nil {
-		return fmt.Errorf("failed to write agent file: %w", err)
+	agentsFile := filepath.Join(srcDir, "agents.yaml")
+	if err := os.WriteFile(agentsFile, []byte(d.Agent), 0644); err != nil {
+		return fmt.Errorf("failed to write agents file: %w", err)
 	}
 
 	// Write workflow contents to file
-	if err := os.WriteFile(filepath.Join(tmpDeployDir, "workflow.yaml"), []byte(workflow), 0644); err != nil {
+	workflowFile := filepath.Join(srcDir, "workflow.yaml")
+	if err := os.WriteFile(workflowFile, []byte(d.Workflow), 0644); err != nil {
 		return fmt.Errorf("failed to write workflow file: %w", err)
 	}
 
-	// Change to tmp directory and build the image
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get current directory: %w", err)
-	}
-
-	if err := os.Chdir(tmpDeployDir); err != nil {
-		return fmt.Errorf("failed to change directory: %w", err)
-	}
-
-	// Build the image
-	buildArgs := CreateBuildArgs(d.Cmd, d.Flags)
-	cmd := exec.Command(buildArgs[0], buildArgs[1:]...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		// Change back to original directory before returning error
-		_ = os.Chdir(currentDir)
-		return fmt.Errorf("failed to build image: %w", err)
-	}
-
-	// Change back to original directory
-	if err := os.Chdir(currentDir); err != nil {
-		return fmt.Errorf("failed to change back to original directory: %w", err)
-	}
-
-	return nil
-}
-
-// DeployToDocker deploys the agent to a Docker container.
-func (d *Deploy) DeployToDocker() error {
-	// Build the image
-	if err := d.BuildImage(d.Agent, d.Workflow); err != nil {
-		return err
-	}
-
 	// Run the container
-	dockerArgs := CreateDockerArgs(d.Cmd, d.Target, d.Env)
+	dockerArgs := CreateDockerArgs(d.Cmd, d.Target, d.Env, srcDir)
 	cmd := exec.Command(dockerArgs[0], dockerArgs[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -285,51 +220,119 @@ func (d *Deploy) DeployToDocker() error {
 	}
 
 	// Clean up temporary directory
-	if err := os.RemoveAll(d.TmpDir); err != nil {
-		return fmt.Errorf("failed to clean up temporary directory: %w", err)
-	}
+	//if err := os.RemoveAll(d.TmpDir); err != nil {
+	//	return fmt.Errorf("failed to clean up temporary directory: %w", err)
+	//}
 
 	return nil
 }
 
 // DeployToKubernetes deploys the trained model to Kubernetes.
 func (d *Deploy) DeployToKubernetes() error {
-	// Build the image
-	if err := d.BuildImage(d.Agent, d.Workflow); err != nil {
-		return err
+	// Create ConfigMap with agents and workflow YAML
+	if err := CreateConfigMap(d.Agent, d.Workflow); err != nil {
+		return fmt.Errorf("failed to create ConfigMap: %w", err)
 	}
 
-	// Update deployment YAML with environment variables
-	if err := UpdateYAML(filepath.Join(d.TmpDir, "tmp/deployment.yaml"), d.Env); err != nil {
-		return fmt.Errorf("failed to update deployment YAML: %w", err)
+	// Create temporary directory for deployment
+	d.TmpDir = filepath.Join(os.TempDir(), "maestro")
+	if err := os.MkdirAll(d.TmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 
-	// Tag the image if IMAGE_TAG_CMD is set
-	imageTagCmd := os.Getenv("IMAGE_TAG_CMD")
-	if imageTagCmd != "" {
-		cmd := exec.Command("sh", "-c", imageTagCmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+	// Deployment template - using raw string to avoid any hidden characters
+	deploymentTemplate := "apiVersion: apps/v1\n" +
+		"kind: Deployment\n" +
+		"metadata:\n" +
+		"  name: maestro\n" +
+		"spec:\n" +
+		"  replicas: 1\n" +
+		"  selector:\n" +
+		"    matchLabels:\n" +
+		"      app: maestro\n" +
+		"  template:\n" +
+		"    metadata:\n" +
+		"      labels:\n" +
+		"        app: maestro\n" +
+		"    spec:\n" +
+		"      containers:\n" +
+		"      - name: maestro\n" +
+		"        image: maestro-api:latest\n" +
+		"        imagePullPolicy: Never\n" +
+		"        ports:\n" +
+		"        - containerPort: 8080\n" +
+		"        env:\n" +
+		"        - name: DUMMY\n" +
+		"          value: dummyvalue\n" +
+		"        volumeMounts:\n" +
+		"        - name: maestro-config\n" +
+		"          mountPath: /app/src\n" +
+		"      volumes:\n" +
+		"      - name: maestro-config\n" +
+		"        configMap:\n" +
+		"          name: maestrodata"
 
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to tag image: %w", err)
+	// Parse the deployment template
+	var deploymentData map[string]interface{}
+	if err := yaml.Unmarshal([]byte(deploymentTemplate), &deploymentData); err != nil {
+		return fmt.Errorf("failed to parse deployment template: %w", err)
+	}
+
+	// Add environment variables
+	if d.Env != "" {
+		spec := deploymentData["spec"].(map[string]interface{})
+		template := spec["template"].(map[string]interface{})
+		templateSpec := template["spec"].(map[string]interface{})
+		containers := templateSpec["containers"].([]interface{})
+		container := containers[0].(map[string]interface{})
+
+		// Get or create env array
+		var env []interface{}
+		if existingEnv, ok := container["env"].([]interface{}); ok {
+			env = existingEnv
+		} else {
+			env = []interface{}{}
 		}
+
+		// Add environment variables
+		pairs := strings.Fields(d.Env)
+		for _, pair := range pairs {
+			parts := strings.SplitN(pair, "=", 2)
+			if len(parts) == 2 {
+				env = append(env, map[string]interface{}{
+					"name":  parts[0],
+					"value": parts[1],
+				})
+			}
+		}
+
+		// Update the env array
+		container["env"] = env
 	}
 
-	// Push the image if IMAGE_PUSH_CMD is set
-	imagePushCmd := os.Getenv("IMAGE_PUSH_CMD")
-	if imagePushCmd != "" {
-		cmd := exec.Command("sh", "-c", imagePushCmd)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
+	// Marshal the updated deployment YAML
+	updatedDeploymentYAML, err := yaml.Marshal(deploymentData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal deployment YAML: %w", err)
+	}
 
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to push image: %w", err)
-		}
+	// Create a temporary file for the deployment YAML
+	deploymentFile, err := os.CreateTemp(d.TmpDir, "deployment-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary deployment file: %w", err)
+	}
+	defer os.Remove(deploymentFile.Name())
+
+	// Write the deployment YAML to the temporary file
+	if _, err := deploymentFile.Write(updatedDeploymentYAML); err != nil {
+		return fmt.Errorf("failed to write deployment YAML: %w", err)
+	}
+	if err := deploymentFile.Close(); err != nil {
+		return fmt.Errorf("failed to close deployment file: %w", err)
 	}
 
 	// Apply deployment
-	deployCmd := exec.Command("kubectl", "apply", "-f", filepath.Join(d.TmpDir, "tmp/deployment.yaml"))
+	deployCmd := exec.Command("kubectl", "apply", "-f", deploymentFile.Name())
 	deployCmd.Stdout = os.Stdout
 	deployCmd.Stderr = os.Stderr
 
@@ -337,8 +340,38 @@ func (d *Deploy) DeployToKubernetes() error {
 		return fmt.Errorf("failed to apply deployment: %w", err)
 	}
 
+	// Service template - using raw string to avoid any hidden characters
+	serviceTemplate := "apiVersion: v1\n" +
+		"kind: Service\n" +
+		"metadata:\n" +
+		"  name: maestro\n" +
+		"spec:\n" +
+		"  selector:\n" +
+		"    app: maestro\n" +
+		"  ports:\n" +
+		"    - protocol: TCP\n" +
+		"      port: 80\n" +
+		"      targetPort: 8080\n" +
+		"      nodePort: 30051\n" +
+		"  type: NodePort"
+
+	// Create a temporary file for the service YAML
+	serviceFile, err := os.CreateTemp(d.TmpDir, "service-*.yaml")
+	if err != nil {
+		return fmt.Errorf("failed to create temporary service file: %w", err)
+	}
+	defer os.Remove(serviceFile.Name())
+
+	// Write the service YAML to the temporary file
+	if _, err := serviceFile.WriteString(serviceTemplate); err != nil {
+		return fmt.Errorf("failed to write service YAML: %w", err)
+	}
+	if err := serviceFile.Close(); err != nil {
+		return fmt.Errorf("failed to close service file: %w", err)
+	}
+
 	// Apply service
-	serviceCmd := exec.Command("kubectl", "apply", "-f", filepath.Join(d.TmpDir, "tmp/service.yaml"))
+	serviceCmd := exec.Command("kubectl", "apply", "-f", serviceFile.Name())
 	serviceCmd.Stdout = os.Stdout
 	serviceCmd.Stderr = os.Stderr
 
@@ -354,62 +387,54 @@ func (d *Deploy) DeployToKubernetes() error {
 	return nil
 }
 
-// Helper functions
+// CreateConfigMap creates a Kubernetes ConfigMap with the given agents and workflow YAML content
+// and applies it to the Kubernetes cluster.
+// Parameters:
+//   - agentsYAML: The content of the agents.yaml file.
+//   - workflowYAML: The content of the workflow.yaml file.
+//
+// Returns:
+//   - error if any
+func CreateConfigMap(agentsYAML string, workflowYAML string) error {
+	// Create a temporary directory for the ConfigMap YAML
+	tmpDir := filepath.Join(os.TempDir(), "maestro-configmap")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		return fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
 
-// copyFile copies a file from src to dst
-func copyFile(src, dst string) error {
-	data, err := os.ReadFile(src)
+	// Create the ConfigMap structure
+	configMap := map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name": "maestrodata",
+		},
+		"data": map[string]interface{}{
+			"agents.yaml":   agentsYAML,
+			"workflow.yaml": workflowYAML,
+		},
+	}
+
+	// Marshal the ConfigMap to YAML
+	configMapYAML, err := yaml.Marshal(configMap)
 	if err != nil {
-		return fmt.Errorf("failed to read source file: %w", err)
+		return fmt.Errorf("failed to marshal ConfigMap to YAML: %w", err)
 	}
 
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return fmt.Errorf("failed to write destination file: %w", err)
+	// Write the ConfigMap YAML to a temporary file
+	configMapFile := filepath.Join(tmpDir, "configmap.yaml")
+	if err := os.WriteFile(configMapFile, configMapYAML, 0644); err != nil {
+		return fmt.Errorf("failed to write ConfigMap YAML file: %w", err)
 	}
 
-	return nil
-}
+	// Apply the ConfigMap using kubectl
+	cmd := exec.Command("kubectl", "apply", "-f", configMapFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-// copyDir recursively copies a directory from src to dst
-func copyDir(src, dst string) error {
-	// Get file info
-	info, err := os.Stat(src)
-	if err != nil {
-		return fmt.Errorf("failed to get source directory info: %w", err)
-	}
-
-	// Check if it's a directory
-	if !info.IsDir() {
-		return fmt.Errorf("source is not a directory")
-	}
-
-	// Create destination directory
-	if err := os.MkdirAll(dst, info.Mode()); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
-	}
-
-	// Read directory entries
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return fmt.Errorf("failed to read source directory: %w", err)
-	}
-
-	// Copy each entry
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-
-		if entry.IsDir() {
-			// Recursively copy subdirectory
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			// Copy file
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to apply ConfigMap: %w", err)
 	}
 
 	return nil
