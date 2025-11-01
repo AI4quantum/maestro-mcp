@@ -830,8 +830,19 @@ func handleDeployWorkflow(ctx context.Context, request mcp.CallToolRequest) (*mc
 			}
 		}()
 		GlobalServerState.Logger.Info("Started asynchronous Kubernetes deployment")
+	} else {
+		// Default deployment: serve workflow with API and UI
+		go func() {
+			err := deploy.DeployDefault()
+			if err != nil {
+				GlobalServerState.Logger.Error("Failed to deploy workflow",
+					zap.Error(err))
+			} else {
+				GlobalServerState.Logger.Info("Default deployment completed successfully")
+			}
+		}()
+		GlobalServerState.Logger.Info("Started asynchronous default deployment")
 	}
-	// TODO: Implement workflow deployment logic
 	// This would involve deploying the workflow to the specified target
 
 	GlobalServerState.Logger.Info("Deploying workflow",
