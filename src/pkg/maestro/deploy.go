@@ -519,9 +519,10 @@ func (d *Deploy) DeployDefault() error {
 	}()
 
 	// Wait for API server to be healthy
-	if !waitForAPIHealth(apiHost, apiPort, 60, 1, d.Logger) {
-		d.Logger.Error("Failed to start API server - health check failed")
-		return fmt.Errorf("API server failed to become healthy")
+	if err := waitForAPIHealth(apiHost, apiPort, 60, 1, apiErrChan, d.Logger); err != nil {
+		d.Logger.Error("Failed to start API server - health check failed",
+			zap.Error(err))
+		return fmt.Errorf("API server failed to become healthy: %w", err)
 	}
 
 	// Start the UI server
@@ -544,36 +545,50 @@ func (d *Deploy) DeployDefault() error {
 //   - port: API server port
 //   - timeout: Maximum time to wait in seconds
 //   - checkInterval: Time between health checks in seconds
+//   - apiErrChan: Channel to receive errors from the API server goroutine
 //   - logger: Logger instance
 //
 // Returns:
-//   - bool: True if API is healthy, False if timeout reached
-func waitForAPIHealth(host string, port int, timeout int, checkInterval int, logger *zap.Logger) bool {
+//   - error: nil if API is healthy, error if startup failed or timeout reached
+func waitForAPIHealth(host string, port int, timeout int, checkInterval int, apiErrChan <-chan error, logger *zap.Logger) error {
 	url := fmt.Sprintf("http://%s:%d/health", host, port)
 	startTime := time.Now()
 	timeoutDuration := time.Duration(timeout) * time.Second
+	ticker := time.NewTicker(time.Duration(checkInterval) * time.Second)
+	defer ticker.Stop()
 
 	logger.Info("Waiting for API server to be ready", zap.String("url", url))
 
-	for time.Since(startTime) < timeoutDuration {
-		resp, err := http.Get(url)
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == 200 {
-				var healthData map[string]interface{}
-				if err := json.NewDecoder(resp.Body).Decode(&healthData); err == nil {
-					if status, ok := healthData["status"].(string); ok && status == "healthy" {
-						logger.Info("API server is ready!")
-						return true
+	for {
+		select {
+		case err := <-apiErrChan:
+			// API server failed to start
+			logger.Error("API server startup failed", zap.Error(err))
+			return fmt.Errorf("API server startup failed: %w", err)
+
+		case <-ticker.C:
+			// Check if timeout has been reached
+			if time.Since(startTime) >= timeoutDuration {
+				logger.Error("API server failed to become ready", zap.Int("timeout_seconds", timeout))
+				return fmt.Errorf("API server health check timeout after %d seconds", timeout)
+			}
+
+			// Try to check health endpoint
+			resp, err := http.Get(url)
+			if err == nil {
+				defer resp.Body.Close()
+				if resp.StatusCode == 200 {
+					var healthData map[string]interface{}
+					if err := json.NewDecoder(resp.Body).Decode(&healthData); err == nil {
+						if status, ok := healthData["status"].(string); ok && status == "healthy" {
+							logger.Info("API server is ready!")
+							return nil
+						}
 					}
 				}
 			}
 		}
-		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
-
-	logger.Error("API server failed to become ready", zap.Int("timeout_seconds", timeout))
-	return false
 }
 
 // startUIServer starts the UI server using npm.
