@@ -121,7 +121,7 @@ func createOpenAIAgent(agent map[string]interface{}) (interface{}, error) {
 }
 
 func createCodeAgent(agent map[string]interface{}) (interface{}, error) {
-	return NewBaseAgent(agent)
+	return NewCodeAgent(agent)
 }
 
 func createMockAgent(agent map[string]interface{}) (interface{}, error) {
@@ -129,11 +129,11 @@ func createMockAgent(agent map[string]interface{}) (interface{}, error) {
 }
 
 func createRemoteAgent(agent map[string]interface{}) (interface{}, error) {
-	return NewBaseAgent(agent)
+	return NewRemoteAgent(agent)
 }
 
 func createCustomAgent(agent map[string]interface{}) (interface{}, error) {
-	return NewBaseAgent(agent)
+	return NewCustomAgent(agent)
 }
 
 // Made with Bob
